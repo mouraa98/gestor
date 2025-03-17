@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/recibo.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <title>Gerar Recibo/Orçamento</title>
+</head>
+<body>
+    <aside class="sidebar">
+        <h2>Financeiro</h2>
+        <nav>
+            <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="/recibo" class="active"><i class="fas fa-file-invoice"></i> Gerar Recibo</a>
+            <a href="/add-item"><i class="fas fa-plus"></i> Adicionar Item</a>
+            <a href="/dividas"><i class="fas fa-file-invoice-dollar"></i> Dívidas</a>
+            <a href="/receitas"><i class="fas fa-money-bill-wave"></i> Receitas</a>
+            <a href="/saidas"><i class="fas fa-money-bill-alt"></i> Saídas</a>
+            <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </nav>
+    </aside>
+
+    <header class="header">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <h1>Gerar Recibo</h1>
+    </header>
+
+    <main class="main-content">
+        <div class="recibo-container">
+            <h2>Recibo | Orçamento</h2>
+            <form id="reciboForm">
+                <label for="tipoDocumento">Tipo de Documento:</label>
+                <select id="tipoDocumento" name="tipoDocumento" required>
+                    <option value="recibo">Recibo</option>
+                    <option value="orcamento">Orçamento</option>
+                </select>
+
+                <label for="nomeCliente">Nome do Cliente:</label>
+                <input type="text" id="nomeCliente" name="nomeCliente" required>
+
+                <label for="nomeEmpresa">Nome da Empresa:</label>
+                <input type="text" id="nomeEmpresa" name="nomeEmpresa" required>
+
+                <label for="chavePix">Chave PIX:</label>
+                <input type="text" id="chavePix" name="chavePix" required placeholder="Informe a chave PIX">
+
+                <label for="logo">Logo da Empresa:</label>
+                <input type="file" id="logo" name="logo" accept="image/*">
+
+                <!-- Campo de data de validade (apenas para orçamento) -->
+                <div id="dataValidadeContainer" style="display: none;">
+                    <label for="dataValidade">Data de Validade:</label>
+                    <input type="date" id="dataValidade" name="dataValidade">
+                </div>
+
+                <div id="itensContainer">
+                    <div class="item">
+                        <label>Item:</label>
+                        <input type="text" name="itemNome" placeholder="Nome do item" required>
+                        <label>Valor:</label>
+                        <input type="number" name="itemValor" step="0.01" placeholder="Valor" required>
+                        <button type="button" class="removerItem">Remover</button>
+                    </div>
+                </div>
+
+                <button type="button" id="adicionarItem">Adicionar Item</button>
+                <button type="button" onclick="gerarRecibo()">Gerar Recibo/Orçamento</button>
+            </form>
+
+            <div id="reciboPreview" style="display: none;">
+                <div class="recibo-logo">
+                    <img id="previewLogo" src="" alt="Logo da Empresa" style="max-width: 150px;">
+                </div>
+                <h2 id="previewTitulo"></h2>
+                <p><strong>Cliente:</strong> <span id="previewNomeCliente"></span></p>
+
+                <!-- Exibe a data de criação ou validade -->
+                <p id="previewData"></p>
+
+                <table class="recibo-tabela">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Valor (R$)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewItens"></tbody>
+                    <tfoot>
+                        <tr>
+                            <th>Total</th>
+                            <th id="previewTotal"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div class="recibo-descricao">
+                    <p><strong>Descrição:</strong> <span id="previewDescricao"></span></p>
+                </div>
+
+                <div class="recibo-qrcode">
+                    <div id="qrcode"></div>
+                    <p>Pague via PIX</p>
+                </div>
+
+                <button type="button" class="generate-pdf" onclick="gerarPDF()">
+                    <i class="fas fa-file-pdf"></i> Gerar PDF
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script>
+        // Mostra ou esconde o campo de data de validade com base no tipo de documento
+        document.getElementById('tipoDocumento').addEventListener('change', function () {
+            const dataValidadeContainer = document.getElementById('dataValidadeContainer');
+            if (this.value === 'orcamento') {
+                dataValidadeContainer.style.display = 'block';
+            } else {
+                dataValidadeContainer.style.display = 'none';
+            }
+        });
+
+        // Função para adicionar itens dinamicamente
+        document.getElementById('adicionarItem').addEventListener('click', () => {
+            const itensContainer = document.getElementById('itensContainer');
+            const novoItem = document.createElement('div');
+            novoItem.classList.add('item');
+            novoItem.innerHTML = `
+                <label>Item:</label>
+                <input type="text" name="itemNome" placeholder="Nome do item" required>
+                <label>Valor:</label>
+                <input type="number" name="itemValor" step="0.01" placeholder="Valor" required>
+                <button type="button" class="removerItem">Remover</button>
+            `;
+            itensContainer.appendChild(novoItem);
+
+            // Adiciona evento de remoção ao botão
+            novoItem.querySelector('.removerItem').addEventListener('click', () => {
+                itensContainer.removeChild(novoItem);
+            });
+        });
+
+        // Função para gerar o recibo/orçamento
+        function gerarRecibo() {
+            const tipoDocumento = document.getElementById('tipoDocumento').value;
+            const nomeCliente = document.getElementById('nomeCliente').value;
+            const nomeEmpresa = document.getElementById('nomeEmpresa').value;
+            const chavePix = document.getElementById('chavePix').value;
+            const logo = document.getElementById('logo').files[0];
+            const dataValidade = document.getElementById('dataValidade').value;
+
+            // Coleta os itens
+            const itens = [];
+            let total = 0;
+            document.querySelectorAll('.item').forEach(item => {
+                const nome = item.querySelector('input[name="itemNome"]').value;
+                const valor = parseFloat(item.querySelector('input[name="itemValor"]').value);
+                itens.push({ nome, valor });
+                total += valor;
+            });
+
+            // Atualiza a pré-visualização
+            document.getElementById('previewTitulo').textContent = tipoDocumento === 'recibo' ? 'Recibo' : 'Orçamento';
+            document.getElementById('previewNomeCliente').textContent = nomeCliente;
+
+            // Exibe a data de criação ou validade
+            const previewData = document.getElementById('previewData');
+            if (tipoDocumento === 'recibo') {
+                const dataCriacao = new Date().toLocaleDateString('pt-BR');
+                previewData.innerHTML = `<strong>Data de Criação:</strong> ${dataCriacao}`;
+            } else {
+                previewData.innerHTML = `<strong>Data de Validade:</strong> ${dataValidade}`;
+            }
+
+            const previewItens = document.getElementById('previewItens');
+            previewItens.innerHTML = '';
+            itens.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.nome}</td>
+                    <td>R$ ${item.valor.toFixed(2)}</td>
+                `;
+                previewItens.appendChild(row);
+            });
+
+            document.getElementById('previewTotal').textContent = `R$ ${total.toFixed(2)}`;
+
+            // Gera a descrição automática
+            const descricao = `${tipoDocumento === 'recibo' ? 'Recibo' : 'Orçamento'} em nome de ${nomeCliente}, gerado por ${nomeEmpresa}, contendo os itens: ${itens.map(item => `${item.nome} no valor de R$ ${item.valor.toFixed(2)}`).join(', ')}. Totalizando o valor final de R$ ${total.toFixed(2)}.`;
+            document.getElementById('previewDescricao').textContent = descricao;
+
+            // Exibe a logo
+            if (logo) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('previewLogo').src = e.target.result;
+                };
+                reader.readAsDataURL(logo);
+            }
+
+            // Gera o QR Code PIX
+            const qrcodeDiv = document.getElementById('qrcode');
+            qrcodeDiv.innerHTML = '';
+
+            // Monta o payload do PIX com base na chave PIX fornecida
+            const payload = [
+                { id: '00', value: '01' }, // Payload Format Indicator
+                { id: '26', value: `0014BR.GOV.BCB.PIX01${String(chavePix.length).padStart(2, '0')}${chavePix}` }, // Merchant Account Information
+                { id: '52', value: '0000' }, // Merchant Category Code
+                { id: '53', value: '986' }, // Transaction Currency (BRL)
+                { id: '54', value: total.toFixed(2) }, // Transaction Amount
+                { id: '58', value: 'BR' }, // Country Code
+                { id: '59', value: nomeEmpresa }, // Merchant Name
+                { id: '60', value: 'BRASILIA' }, // Merchant City (ajuste para a cidade desejada)
+                { id: '62', value: '0503***' } // Additional Data Field (opcional)
+            ];
+
+            // Converte o payload para string
+            let payloadString = payload.map(field => `${field.id}${String(field.value.length).padStart(2, '0')}${field.value}`).join('');
+
+            // Adiciona o CRC-16
+            function calcularCRC16(codigo) {
+                let crc = 0xFFFF;
+                for (let i = 0; i < codigo.length; i++) {
+                    crc ^= codigo.charCodeAt(i) << 8;
+                    for (let j = 0; j < 8; j++) {
+                        crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+                    }
+                }
+                return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+            }
+
+            const crc16 = calcularCRC16(payloadString + '6304');
+            const codigoPIXCompleto = `${payloadString}6304${crc16}`;
+
+            // Gera o QR Code
+            new QRCode(qrcodeDiv, {
+                text: codigoPIXCompleto,
+                width: 128,
+                height: 128
+            });
+
+            // Exibe a pré-visualização
+            document.getElementById('reciboPreview').style.display = 'block';
+        }
+
+        // Função para gerar PDF
+        // Função para gerar PDF
+function gerarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Margens e espaçamentos
+    const marginLeft = 10;
+    const marginTop = 10;
+    const lineHeight = 7;
+    let currentY = marginTop;
+
+    // Verifica se a logo foi carregada
+    const logo = document.getElementById('previewLogo').src;
+    let logoHeight = 0;
+
+    if (logo) {
+        const img = new Image();
+        img.src = logo;
+
+        // Calcula a altura proporcional da logo
+        const logoWidth = 50; // Largura fixa
+        logoHeight = (img.height * logoWidth) / img.width; // Altura proporcional
+
+        // Adiciona a logo ao PDF
+        doc.addImage(logo, 'PNG', marginLeft, currentY, logoWidth, logoHeight);
+        currentY += logoHeight + 10; // Espaço após a logo
+    }
+
+    // Informações da empresa (alinhadas à esquerda)
+    const nomeEmpresa = document.getElementById('nomeEmpresa').value;
+    const emailEmpresa = document.getElementById('emailEmpresa')?.value || '';
+    const contatoEmpresa = document.getElementById('contatoEmpresa')?.value || '';
+    const enderecoEmpresa = document.getElementById('enderecoEmpresa')?.value || '';
+
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0); // Preto
+
+    // Contato da empresa
+    if (contatoEmpresa) {
+        doc.text(`Contato: ${contatoEmpresa}`, marginLeft, currentY);
+        currentY += lineHeight;
+    }
+
+    // Email da empresa
+    if (emailEmpresa) {
+        doc.text(`Email: ${emailEmpresa}`, marginLeft, currentY);
+        currentY += lineHeight;
+    }
+
+    // Endereço da empresa
+    if (enderecoEmpresa) {
+        doc.text(`Endereço: ${enderecoEmpresa}`, marginLeft, currentY);
+        currentY += lineHeight;
+    }
+
+    // Data de criação (alinhada à direita)
+    const previewData = document.getElementById('previewData').textContent;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const dataWidth = doc.getTextWidth(previewData);
+    doc.text(previewData, pageWidth - marginLeft - dataWidth, currentY);
+    currentY += lineHeight + 10; // Espaço extra após as informações
+
+    // Título do documento (Recibo ou Orçamento)
+    doc.setFontSize(22);
+    doc.setTextColor(0, 0, 0);
+    const titulo = document.getElementById('previewTitulo').textContent;
+    const tituloWidth = doc.getTextWidth(titulo);
+    doc.text(titulo, (pageWidth - tituloWidth) / 2, currentY); // Centralizado
+    currentY += lineHeight + 10;
+
+    // Informações do cliente
+    doc.setFontSize(12);
+    doc.text(`Cliente: ${document.getElementById('previewNomeCliente').textContent}`, marginLeft, currentY);
+    currentY += lineHeight;
+
+    // Tabela de itens
+    const itens = [];
+    document.querySelectorAll('#previewItens tr').forEach(row => {
+        itens.push([row.cells[0].textContent, row.cells[1].textContent]);
+    });
+
+    doc.autoTable({
+        startY: currentY,
+        head: [['Item', 'Valor (R$)']],
+        body: itens,
+        theme: 'grid',
+        headStyles: {
+            fillColor: [200, 200, 200], // Cinza claro para o cabeçalho
+            textColor: [0, 0, 0]
+        },
+        bodyStyles: {
+            textColor: [0, 0, 0]
+        }
+    });
+
+    // Total
+    currentY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.text(`Total: ${document.getElementById('previewTotal').textContent}`, marginLeft, currentY);
+    currentY += lineHeight + 10;
+
+    // Descrição
+    doc.setFontSize(12);
+    doc.text(`Descrição: ${document.getElementById('previewDescricao').textContent}`, marginLeft, currentY, { maxWidth: 180 });
+    currentY += lineHeight * 3; // Espaço após a descrição
+
+    // QR Code
+    const qrcodeImg = document.querySelector('#qrcode img');
+    if (qrcodeImg) {
+        doc.addImage(qrcodeImg.src, 'PNG', marginLeft, currentY, 50, 50);
+        doc.text("Pague via PIX", marginLeft + 60, currentY + 25);
+    }
+
+    // Rodapé
+    const footerY = doc.internal.pageSize.getHeight() - 20;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100); // Cinza
+    doc.text("Obrigado pela preferência!", marginLeft, footerY);
+
+    // Linha de assinatura
+    doc.line(marginLeft, footerY + 5, marginLeft + 60, footerY + 5);
+    doc.text("Assinatura", marginLeft, footerY + 10);
+
+    // Salva o PDF
+    doc.save('recibo_orcamento.pdf');
+}
+    </script>
+</body>
+</html>

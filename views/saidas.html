@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/saida.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <title>Listar Saídas - Sistema Financeiro</title>
+</head>
+<body>
+  <!-- Menu lateral -->
+  <div class="sidebar">
+    <h2>Financeiro</h2>
+    <nav>
+        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="/add-item"><i class="fas fa-plus"></i> Adicionar Item</a>
+        <a href="/dividas"><i class="fas fa-file-invoice-dollar"></i> Dívidas</a>
+        <a href="/receitas"><i class="fas fa-money-bill-wave"></i> Receitas</a>
+        <a href="/saidas" class="active"><i class="fas fa-money-bill-alt"></i> Saídas</a>
+        <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </nav>
+  </div>
+
+  <!-- Cabeçalho fixo -->
+  <header class="header">
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <h1>Saídas</h1>
+  </header>
+
+  <!-- Conteúdo principal -->
+  <div class="main-content">
+    <!-- Barra de Pesquisa -->
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="Pesquisar por descrição..." oninput="filterSaidas()">
+      <i class="fas fa-search"></i>
+    </div>
+
+    <!-- Tabela de Saídas -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Valor</th>
+            <th>Data</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="saidas-list">
+          <!-- As saídas serão carregadas aqui dinamicamente -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Script para carregar e gerenciar saídas -->
+  <script>
+    // Função para carregar as saídas
+    async function loadSaidas() {
+        try {
+            const response = await fetch('/api/saidas'); // Rota para buscar saídas
+            if (!response.ok) {
+                throw new Error('Erro ao carregar saídas');
+            }
+            const saidas = await response.json();
+            const tbody = document.getElementById('saidas-list');
+
+            // Limpar a lista atual
+            tbody.innerHTML = '';
+
+            // Adicionar cada saída na tabela
+            saidas.forEach(saida => {
+                const row = document.createElement('tr');
+
+                row.innerHTML = `
+                    <td>${saida.description}</td>
+                    <td>R$ ${saida.amount.toFixed(2)}</td>
+                    <td>${new Date(saida.createdAt).toLocaleDateString()}</td>
+                    <td>
+                        <button onclick="editarSaida('${saida.id}')">Editar</button>
+                        <button onclick="deletarSaida('${saida.id}')">Deletar</button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Erro:', error);
+        }
+    }
+
+    // Função para filtrar as saídas na tabela
+    function filterSaidas() {
+      const input = document.getElementById('searchInput');
+      const filter = input.value.toUpperCase();
+      const tbody = document.getElementById('saidas-list');
+      const rows = tbody.getElementsByTagName('tr');
+
+      for (let i = 0; i < rows.length; i++) {
+        const descricao = rows[i].getElementsByTagName('td')[0];
+        if (descricao) {
+          const txtValue = descricao.textContent || descricao.innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            rows[i].style.display = '';
+          } else {
+            rows[i].style.display = 'none';
+          }
+        }
+      }
+    }
+
+    // Função para editar uma saída
+    async function editarSaida(id) {
+        // Redirecionar para a página de edição
+        window.location.href = `/editar-saida/${id}`;
+    }
+
+    // Função para deletar uma saída
+    async function deletarSaida(id) {
+        try {
+            const response = await fetch(`/api/saidas/${id}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error('Erro ao deletar saída');
+            }
+            alert('Saída deletada com sucesso!');
+            loadSaidas(); // Recarregar a lista de saídas
+        } catch (error) {
+            console.error('Erro:', error);
+            alert('Erro ao deletar saída');
+        }
+    }
+
+    // Carregar as saídas ao abrir a página
+    loadSaidas();
+  </script>
+
+  <!-- Script para alternar o menu lateral -->
+  <script>
+    const menuToggle = document.querySelector('.menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.overlay');
+
+    menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+    });
+
+    overlay.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+    });
+  </script>
+</body>
+</html>

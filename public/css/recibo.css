@@ -1,0 +1,141 @@
+/* Estilos específicos para a página de recibo */
+.recibo-container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: var(--secondary-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.recibo-container h2 {
+    text-align: center;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+}
+
+#reciboForm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#reciboForm label {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+#reciboForm input, #reciboForm select, #reciboForm textarea {
+    padding: 0.75rem;
+    border: 1px solid #2C3E50;
+    border-radius: 8px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+#reciboForm button {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--primary-color);
+    color: var(--white-color);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#reciboForm button:hover {
+    background-color: #45a049;
+}
+
+#itensContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.item {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.removerItem {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.removerItem:hover {
+    background-color: #c0392b;
+}
+
+#reciboPreview {
+    margin-top: 20px;
+    background-color: var(--secondary-color);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.recibo-logo {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.recibo-logo img {
+    max-width: 150px;
+}
+
+.recibo-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.recibo-tabela th, .recibo-tabela td {
+    border: 1px solid #2C3E50;
+    padding: 8px;
+    text-align: left;
+    color: var(--text-color);
+}
+
+.recibo-tabela th {
+    background-color: var(--primary-color);
+    color: var(--white-color);
+}
+
+.recibo-descricao {
+    margin-bottom: 20px;
+    color: var(--text-color);
+}
+
+.recibo-qrcode {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.recibo-qrcode img {
+    max-width: 150px;
+}
+
+.generate-pdf {
+    background-color: var(--primary-color);
+    color: var(--white-color);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+.generate-pdf:hover {
+    background-color: #45a049;
+}
+
+.generate-pdf i {
+    margin-right: 10px;
+}

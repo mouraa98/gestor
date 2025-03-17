@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/register.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <title>Registrar - Sistema Financeiro</title>
+</head>
+<body>
+  <div class="container">
+    <h1><i class="fas fa-user-plus"></i> Registrar</h1>
+
+    <!-- Notificações -->
+    <div id="notification" class="notification"></div>
+
+    <!-- Formulário de Registro -->
+    <form id="registerForm" action="/register" method="POST">
+      <div class="input-container">
+        <i class="fas fa-user"></i>
+        <input type="text" id="username" name="username" placeholder="Usuário" required>
+      </div>
+      <div class="input-container">
+        <i class="fas fa-lock"></i>
+        <input type="password" id="password" name="password" placeholder="Senha" required>
+      </div>
+      <button type="submit">Registrar</button>
+    </form>
+
+    <!-- Link para Login -->
+    <div class="nav-links">
+      <a href="/login"><i class="fas fa-sign-in-alt"></i> Já tem uma conta? Faça login</a>
+    </div>
+  </div>
+
+  <!-- Script para notificações -->
+  <script>
+    // Função para exibir notificações
+    function showNotification(message, type) {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.className = `notification ${type}`;
+      notification.style.display = 'block';
+
+      // Oculta a notificação após 5 segundos
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, 5000);
+    }
+
+    // Exemplo de uso (pode ser integrado ao backend)
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+
+    if (success) {
+      showNotification(success, 'success');
+    } else if (error) {
+      showNotification(error, 'error');
+    }
+  </script>
+</body>
+</html>
