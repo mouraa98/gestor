@@ -14,6 +14,7 @@
     <h2>Financeiro</h2>
     <nav>
         <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+        <a href="/recibo"><i class="fas fa-file-invoice"></i> Gerar Recibo</a>
         <a href="/add-item"><i class="fas fa-plus"></i> Adicionar Item</a>
         <a href="/dividas"><i class="fas fa-file-invoice-dollar"></i> Dívidas</a>
         <a href="/receitas"><i class="fas fa-money-bill-wave"></i> Receitas</a>
@@ -74,12 +75,12 @@
                 const row = document.createElement('tr');
 
                 row.innerHTML = `
-                    <td>${saida.description}</td>
-                    <td>R$ ${saida.amount.toFixed(2)}</td>
-                    <td>${new Date(saida.createdAt).toLocaleDateString()}</td>
-                    <td>
-                        <button onclick="editarSaida('${saida.id}')">Editar</button>
-                        <button onclick="deletarSaida('${saida.id}')">Deletar</button>
+                    <td data-label="Descrição">${saida.description}</td>
+                    <td data-label="Valor">R$ ${saida.amount.toFixed(2)}</td>
+                    <td data-label="Data">${new Date(saida.createdAt).toLocaleDateString()}</td>
+                    <td data-label="Ações">
+                        <button class="editar" onclick="editarSaida('${saida.id}')"><i class="fas fa-edit"></i> Editar</button>
+                        <button class="deletar" onclick="deletarSaida('${saida.id}')"><i class="fas fa-trash"></i> Deletar</button>
                     </td>
                 `;
 
@@ -139,19 +140,10 @@
 
   <!-- Script para alternar o menu lateral -->
   <script>
-    const menuToggle = document.querySelector('.menu-toggle');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.querySelector('.overlay');
-
-    menuToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-    });
-
-    overlay.addEventListener('click', () => {
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-    });
+    function toggleSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('active');
+    }
   </script>
 </body>
 </html>

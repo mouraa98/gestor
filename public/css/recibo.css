@@ -25,12 +25,15 @@
     color: var(--text-color);
 }
 
-#reciboForm input, #reciboForm select, #reciboForm textarea {
+#reciboForm input,
+#reciboForm select,
+#reciboForm textarea {
     padding: 0.75rem;
     border: 1px solid #2C3E50;
     border-radius: 8px;
     background-color: var(--background-color);
     color: var(--text-color);
+    width: 100%; /* Garante que os inputs ocupem 100% da largura */
 }
 
 #reciboForm button {
@@ -41,6 +44,7 @@
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    width: 100%; /* Botão ocupa 100% da largura em telas pequenas */
 }
 
 #reciboForm button:hover {
@@ -55,8 +59,9 @@
 
 .item {
     display: flex;
+    flex-direction: column; /* Altera para coluna em telas pequenas */
     gap: 10px;
-    align-items: center;
+    align-items: flex-start; /* Alinha itens à esquerda */
 }
 
 .removerItem {
@@ -66,6 +71,7 @@
     border-radius: 4px;
     padding: 5px 10px;
     cursor: pointer;
+    width: 100%; /* Botão ocupa 100% da largura em telas pequenas */
 }
 
 .removerItem:hover {
@@ -87,15 +93,18 @@
 
 .recibo-logo img {
     max-width: 150px;
+    width: 100%; /* Garante que a logo seja responsiva */
 }
 
 .recibo-tabela {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
+    overflow-x: auto; /* Adiciona scroll horizontal em telas pequenas */
 }
 
-.recibo-tabela th, .recibo-tabela td {
+.recibo-tabela th,
+.recibo-tabela td {
     border: 1px solid #2C3E50;
     padding: 8px;
     text-align: left;
@@ -119,6 +128,7 @@
 
 .recibo-qrcode img {
     max-width: 150px;
+    width: 100%; /* Garante que o QR Code seja responsivo */
 }
 
 .generate-pdf {
@@ -130,6 +140,7 @@
     cursor: pointer;
     font-size: 1rem;
     transition: background-color 0.3s ease;
+    width: 100%; /* Botão ocupa 100% da largura em telas pequenas */
 }
 
 .generate-pdf:hover {
@@ -138,4 +149,60 @@
 
 .generate-pdf i {
     margin-right: 10px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .recibo-container {
+        padding: 15px;
+    }
+
+    .recibo-container h2 {
+        font-size: 1.5rem; /* Reduz o tamanho do título */
+    }
+
+    #reciboForm input,
+    #reciboForm select,
+    #reciboForm textarea {
+        padding: 0.5rem; /* Reduz o padding dos inputs */
+    }
+
+    .item {
+        flex-direction: column; /* Altera o layout dos itens para coluna */
+    }
+
+    .recibo-tabela {
+        display: block; /* Permite scroll horizontal */
+    }
+
+    .recibo-tabela th,
+    .recibo-tabela td {
+        padding: 6px; /* Reduz o padding das células */
+    }
+
+    .recibo-logo img,
+    .recibo-qrcode img {
+        max-width: 100px; /* Reduz o tamanho das imagens */
+    }
+}
+
+@media (max-width: 480px) {
+    .recibo-container {
+        margin: 10px;
+        padding: 10px;
+    }
+
+    .recibo-container h2 {
+        font-size: 1.25rem; /* Reduz ainda mais o tamanho do título */
+    }
+
+    #reciboForm button,
+    .generate-pdf {
+        padding: 0.5rem 1rem; /* Reduz o padding dos botões */
+    }
+
+    .recibo-tabela th,
+    .recibo-tabela td {
+        font-size: 0.875rem; /* Reduz o tamanho da fonte da tabela */
+    }
 }

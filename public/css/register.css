@@ -12,22 +12,24 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
   background-color: #12181B; /* Fundo escuro */
   background-image: url('/images/textura.png'); /* Textura financeira */
   background-size: cover;
   background-position: center;
+  padding: 1rem; /* Adiciona padding para evitar que o conteúdo encoste nas bordas */
 }
 
 /* Container principal */
 .container {
   text-align: center;
   background-color: rgba(31, 42, 55, 0.9); /* Azul escuro com transparência */
-  padding: 2.5rem;
+  padding: 2rem;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); /* Sombra mais escura */
   max-width: 400px;
   width: 100%;
+  margin: 1rem; /* Adiciona margem para evitar que o container encoste nas bordas */
 }
 
 /* Título */
@@ -61,6 +63,7 @@ label {
   position: absolute;
   left: 10px;
   color: #999; /* Cor do ícone */
+  z-index: 1; /* Garante que o ícone fique atrás do texto */
 }
 
 input {
@@ -72,6 +75,8 @@ input {
   color: #e0e0e0; /* Texto claro */
   transition: border-color 0.3s ease;
   width: 100%;
+  position: relative;
+  z-index: 2; /* Garante que o texto fique acima do ícone */
 }
 
 input:focus {
@@ -133,17 +138,50 @@ button:hover {
 }
 
 /* Responsividade */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .container {
       padding: 1.5rem;
+      max-width: 90%; /* Aumenta a largura do container em telas menores */
   }
 
   h1 {
-      font-size: 1.75rem;
+      font-size: 1.75rem; /* Reduz o tamanho da fonte do título */
   }
 
   input, button {
       padding: 0.5rem;
-      font-size: 0.9rem;
+      font-size: 0.9rem; /* Reduz o tamanho da fonte dos inputs e botões */
+  }
+
+  .input-container i {
+      left: 8px; /* Ajusta o posicionamento do ícone */
+  }
+
+  .nav-links a {
+      font-size: 0.85rem; /* Reduz o tamanho da fonte dos links */
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+      padding: 1rem;
+      max-width: 100%; /* Ocupa toda a largura em telas muito pequenas */
+  }
+
+  h1 {
+      font-size: 1.5rem; /* Reduz ainda mais o tamanho da fonte do título */
+  }
+
+  input, button {
+      padding: 0.5rem;
+      font-size: 0.85rem; /* Reduz o tamanho da fonte dos inputs e botões */
+  }
+
+  .input-container i {
+      left: 6px; /* Ajusta o posicionamento do ícone */
+  }
+
+  .nav-links a {
+      font-size: 0.8rem; /* Reduz o tamanho da fonte dos links */
   }
 }

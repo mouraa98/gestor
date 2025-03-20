@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/css/dashboard.css">
     <link rel="stylesheet" href="/css/recibo.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
     <title>Gerar Recibo/Orçamento</title>
 </head>
 <body>
@@ -116,6 +117,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <script>
+        // Função para alternar o menu lateral em telas pequenas
+    function toggleSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('active');
+    }
+
         // Mostra ou esconde o campo de data de validade com base no tipo de documento
         document.getElementById('tipoDocumento').addEventListener('change', function () {
             const dataValidadeContainer = document.getElementById('dataValidadeContainer');
