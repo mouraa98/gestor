@@ -9,14 +9,17 @@ body {
 
 /* Menu lateral */
 .sidebar {
-    width: 250px;
-    height: 100vh;
-    background-color: var(--secondary-color);
-    position: fixed;
+    width: 250px; /* Largura fixa para o menu lateral */
+    height: 100vh; /* Altura total da viewport */
+    position: fixed; /* Fixo na tela */
     top: 0;
-    left: -250px; /* Oculta o menu por padrão */
-    transition: left 0.3s ease;
-    z-index: 1000;
+    left: 0;
+    background-color: var(--secondary-color); /* Cor de fundo */
+    color: var(--text-color); /* Cor do texto */
+    padding: 1rem;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Sombra */
+    transition: transform 0.3s ease; /* Transição suave */
+    z-index: 1000; /* Garante que o menu fique acima de outros elementos */
 }
 
 .sidebar.active {

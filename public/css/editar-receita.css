@@ -141,3 +141,6 @@ th {
 table button {
     margin: 5px;
 }
+nav a i {
+    margin-right: 10px; /* Adiciona um espaço entre o ícone e o texto */
+}

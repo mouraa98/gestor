@@ -124,67 +124,75 @@ app.get('/add-item',  isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'add-item.html'));
   });
 
-  // Rota para obter dados do dashboard
-app.get('/dashboard-data',  isAuthenticated, async (req, res) => {
+  app.get('/dashboard-data', isAuthenticated, async (req, res) => {
     if (!req.session.userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' });
+        return res.status(401).json({ error: 'Usuário não autenticado' });
     }
-  
+
     try {
-      // Recuperar todos os itens do usuário logado
-      const items = await prisma.item.findMany({
-        where: {
-          userId: req.session.userId,
-        },
-      });
-  
-      // Calcular receitas, despesas e saldo
-      let totalIncome = 0;
-      let totalExpenses = 0;
-  
-      items.forEach((item) => {
-        if (item.type === 'entrada') {
-          totalIncome += item.amount;
-        } else if (item.type === 'saida' || item.type === 'divida') {
-          totalExpenses += item.amount;
-        }
-      });
-  
-      const balance = totalIncome - totalExpenses;
-  
-      // Dados para o gráfico (agrupados por mês)
-      const monthlyData = items.reduce((acc, item) => {
-        const month = new Date(item.createdAt).toLocaleString('default', { month: 'short' });
-        if (!acc[month]) {
-          acc[month] = { income: 0, expenses: 0 };
-        }
-        if (item.type === 'entrada') {
-          acc[month].income += item.amount;
-        } else if (item.type === 'saida' || item.type === 'divida') {
-          acc[month].expenses += item.amount;
-        }
-        return acc;
-      }, {});
-  
-      const labels = Object.keys(monthlyData);
-      const incomeData = labels.map((month) => monthlyData[month].income);
-      const expensesData = labels.map((month) => monthlyData[month].expenses);
-  
-      res.json({
-        totalIncome,
-        totalExpenses,
-        balance,
-        chartData: {
-          labels,
-          incomeData,
-          expensesData,
-        },
-      });
+        // Recuperar todos os itens do usuário logado
+        const items = await prisma.item.findMany({
+            where: {
+                userId: req.session.userId,
+            },
+        });
+
+        // Calcular receitas, despesas, saídas e saldo
+        let totalIncome = 0;      // Total de receitas
+        let totalExpenses = 0;    // Total de despesas (dívidas)
+        let totalOutflows = 0;    // Total de saídas
+
+        items.forEach((item) => {
+            if (item.type === 'entrada') {
+                totalIncome += item.amount; // Soma as receitas
+            } else if (item.type === 'divida') {
+                totalExpenses += item.amount; // Soma as despesas (dívidas)
+            } else if (item.type === 'saida') {
+                totalOutflows += item.amount; // Soma as saídas
+            }
+        });
+
+        const balance = totalIncome - totalExpenses - totalOutflows; // Saldo considerando receitas, despesas e saídas
+
+        // Dados para o gráfico (agrupados por mês)
+        const monthlyData = items.reduce((acc, item) => {
+            const month = new Date(item.createdAt).toLocaleString('default', { month: 'short' });
+            if (!acc[month]) {
+                acc[month] = { income: 0, expenses: 0, outflows: 0 }; // Inicializa os valores do mês
+            }
+            if (item.type === 'entrada') {
+                acc[month].income += item.amount; // Soma as receitas do mês
+            } else if (item.type === 'divida') {
+                acc[month].expenses += item.amount; // Soma as despesas (dívidas) do mês
+            } else if (item.type === 'saida') {
+                acc[month].outflows += item.amount; // Soma as saídas do mês
+            }
+            return acc;
+        }, {});
+
+        const labels = Object.keys(monthlyData); // Meses para o gráfico
+        const incomeData = labels.map((month) => monthlyData[month].income); // Dados de receitas
+        const expensesData = labels.map((month) => monthlyData[month].expenses); // Dados de despesas
+        const outflowsData = labels.map((month) => monthlyData[month].outflows); // Dados de saídas
+
+        // Retorna os dados para o frontend
+        res.json({
+            totalIncome,
+            totalExpenses,
+            totalOutflows, // Total de saídas
+            balance,
+            chartData: {
+                labels,
+                incomeData,
+                expensesData,
+                outflowsData, // Dados de saídas para o gráfico
+            },
+        });
     } catch (error) {
-      console.error('Erro ao recuperar dados do dashboard:', error);
-      res.status(500).json({ error: 'Erro ao recuperar dados do dashboard' });
+        console.error('Erro ao recuperar dados do dashboard:', error);
+        res.status(500).json({ error: 'Erro ao recuperar dados do dashboard' });
     }
-  });
+});
 
   // Rota para a página de dívidas
 app.get('/dividas',  isAuthenticated, (req, res) => {

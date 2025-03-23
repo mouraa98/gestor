@@ -15,23 +15,21 @@
         <nav>
             <a href="/dashboard" class="active"><i class="fas fa-home"></i> Dashboard</a>
             <a href="/recibo"><i class="fas fa-file-invoice"></i> Gerar Recibo</a>
-            <a href="/add-item" ><i class="fas fa-plus"></i> Adicionar Item</a>
+            <a href="/add-item"><i class="fas fa-plus"></i> Adicionar Item</a>
             <a href="/dividas"><i class="fas fa-file-invoice-dollar"></i> Dívidas</a>
             <a href="/receitas"><i class="fas fa-money-bill-wave"></i> Receitas</a>
             <a href="/saidas"><i class="fas fa-money-bill-alt"></i> Saídas</a>
             <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
-            
         </nav>
     </aside>
 
     <header class="header">
-      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-      <h1>Dashboard</h1>
-      <button class="generate-pdf" onclick="generatePDF()">
-          <i class="fas fa-file-pdf"></i> Gerar PDF
-      </button>
-  </header>
-    
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <h1>Dashboard</h1>
+        <button class="generate-pdf" onclick="generatePDF()">
+            <i class="fas fa-file-pdf"></i> Gerar PDF
+        </button>
+    </header>
 
     <main class="main-content">
         <div class="summary-cards">
@@ -40,11 +38,15 @@
                 <p>R$0.00</p>
             </div>
             <div class="card">
-                <h3><i  class="fas fa-arrow-down"></i> Receitas</h3>
+                <h3><i class="fas fa-arrow-down"></i> Receitas</h3>
                 <p>R$0.00</p>
             </div>
             <div class="card">
                 <h3><i class="fas fa-arrow-up"></i> Despesas</h3>
+                <p>R$0.00</p>
+            </div>
+            <div class="card">
+                <h3><i class="fas fa-money-bill-alt"></i> Saídas</h3>
                 <p>R$0.00</p>
             </div>
         </div>
@@ -54,340 +56,282 @@
         </div>
     </main>
 
-
-  <script>
-    // Função para alternar o menu lateral em telas pequenas
-    function toggleSidebar() {
-      const sidebar = document.querySelector('.sidebar');
-      sidebar.classList.toggle('active');
-    }
-
-    // Função para buscar dados do dashboard
-    async function fetchDashboardData() {
-      try {
-        const response = await fetch('/dashboard-data');
-        if (!response.ok) {
-          throw new Error('Erro ao buscar dados do dashboard');
-        }
-        const data = await response.json();
-        console.log('Dados recebidos:', data); // Depuração
-
-        // Atualizar os cards
-        document.querySelector('.card:nth-child(1) p').textContent = `R$ ${data.balance.toFixed(2)}`;
-        document.querySelector('.card:nth-child(2) p').textContent = `R$ ${data.totalIncome.toFixed(2)}`;
-        document.querySelector('.card:nth-child(3) p').textContent = `R$ ${data.totalExpenses.toFixed(2)}`;
-
-        // Atualizar o gráfico
-        const ctx = document.getElementById('financeChart').getContext('2d');
-
-        // Destruir o gráfico existente, se houver
-        if (window.financeChart && typeof window.financeChart.destroy === 'function') {
-          window.financeChart.destroy();
+    <script>
+        // Função para alternar o menu lateral em telas pequenas
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('active');
         }
 
-        // Criar um novo gráfico
-        window.financeChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: data.chartData.labels,
-            datasets: [{
-              label: 'Receitas',
-              data: data.chartData.incomeData,
-              backgroundColor: '#4CAF50',
-              borderColor: '#4CAF50',
-              borderWidth: 1,
-            }, {
-              label: 'Despesas',
-              data: data.chartData.expensesData,
-              backgroundColor: '#e74c3c',
-              borderColor: '#e74c3c',
-              borderWidth: 1,
-            }]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true
-              }
+        // Função para buscar dados do dashboard
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch('/dashboard-data');
+                if (!response.ok) {
+                    throw new Error('Erro ao buscar dados do dashboard');
+                }
+                const data = await response.json();
+                console.log('Dados recebidos:', data); // Depuração
+
+                // Atualizar os cards
+                document.querySelector('.card:nth-child(1) p').textContent = `R$ ${data.balance.toFixed(2)}`;
+                document.querySelector('.card:nth-child(2) p').textContent = `R$ ${data.totalIncome.toFixed(2)}`;
+                document.querySelector('.card:nth-child(3) p').textContent = `R$ ${data.totalExpenses.toFixed(2)}`;
+                document.querySelector('.card:nth-child(4) p').textContent = `R$ ${data.totalOutflows.toFixed(2)}`; // Novo card para saídas
+
+                // Atualizar o gráfico
+                const ctx = document.getElementById('financeChart').getContext('2d');
+
+                // Destruir o gráfico existente, se houver
+                if (window.financeChart && typeof window.financeChart.destroy === 'function') {
+                    window.financeChart.destroy();
+                }
+
+                // Criar um novo gráfico
+                window.financeChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.chartData.labels,
+                        datasets: [{
+                            label: 'Receitas',
+                            data: data.chartData.incomeData,
+                            backgroundColor: '#4CAF50',
+                            borderColor: '#4CAF50',
+                            borderWidth: 1,
+                        }, {
+                            label: 'Despesas',
+                            data: data.chartData.expensesData,
+                            backgroundColor: '#e74c3c',
+                            borderColor: '#e74c3c',
+                            borderWidth: 1,
+                        }, {
+                            label: 'Saídas',
+                            data: data.chartData.outflowsData, // Adicionando saídas ao gráfico
+                            backgroundColor: '#f39c12',
+                            borderColor: '#f39c12',
+                            borderWidth: 1,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Erro:', error);
             }
-          }
-        });
-      } catch (error) {
-        console.error('Erro:', error);
-      }
-    }
-
-    // Buscar dados ao carregar a página
-    fetchDashboardData();
-  </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script>
-    // Função para gerar o PDF
-    async function generatePDF() {
-  try {
-    // Busca os dados do dashboard
-    const dashboardResponse = await fetch('/dashboard-data');
-    if (!dashboardResponse.ok) {
-      throw new Error('Erro ao buscar dados do dashboard');
-    }
-    const dashboardData = await dashboardResponse.json();
-
-    // Busca as receitas
-    const receitasResponse = await fetch('/api/receitas');
-    if (!receitasResponse.ok) {
-      throw new Error('Erro ao buscar receitas');
-    }
-    const receitasData = await receitasResponse.json();
-
-    // Busca as dívidas
-    const dividasResponse = await fetch('/api/dividas');
-    if (!dividasResponse.ok) {
-      throw new Error('Erro ao buscar dívidas');
-    }
-    const dividasData = await dividasResponse.json();
-
-    // Busca as saídas
-    const saidasResponse = await fetch('/api/saidas');
-    if (!saidasResponse.ok) {
-      throw new Error('Erro ao buscar saídas');
-    }
-    const saidasData = await saidasResponse.json();
-
-    // Verifica se os dados estão no formato esperado
-    if (!Array.isArray(receitasData)) {
-      throw new Error('Dados de receitas não são um array');
-    }
-    if (!Array.isArray(dividasData)) {
-      throw new Error('Dados de dívidas não são um array');
-    }
-    if (!Array.isArray(saidasData)) {
-      throw new Error('Dados de saídas não são um array');
-    }
-
-    // Cria um novo PDF
-    const pdf = new jspdf.jsPDF();
-
-    // Configurações de estilo
-    const primaryColor = '#4CAF50'; // Verde
-    const secondaryColor = '#3498db'; // Azul
-    const textColor = '#333333'; // Cinza escuro
-
-    // Adiciona o cabeçalho
-    pdf.setFontSize(22);
-    pdf.setTextColor(primaryColor);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text("Resumo Financeiro do Mês", 10, 20);
-
-    // Adiciona a data atual
-    pdf.setFontSize(12);
-    pdf.setTextColor(textColor);
-    pdf.setFont('helvetica', 'normal');
-    const today = new Date().toLocaleDateString('pt-BR');
-    pdf.text(`Data: ${today}`, 10, 30);
-
-    // Adiciona uma linha divisória
-    pdf.setDrawColor(primaryColor);
-    pdf.setLineWidth(0.5);
-    pdf.line(10, 35, 200, 35);
-
-    // Adiciona os dados financeiros em uma tabela
-    pdf.setFontSize(14);
-    pdf.setTextColor(secondaryColor);
-    pdf.text("Dados Financeiros", 10, 45);
-
-    pdf.setFontSize(12);
-    pdf.setTextColor(textColor);
-    pdf.autoTable({
-      startY: 50,
-      head: [['Descrição', 'Valor (R$)']],
-      body: [
-        ['Saldo Atual', dashboardData.balance?.toFixed(2) || '0.00'],
-        ['Receitas Totais', dashboardData.totalIncome?.toFixed(2) || '0.00'],
-        ['Despesas Totais', dashboardData.totalExpenses?.toFixed(2) || '0.00'],
-      ],
-      theme: 'striped', // Estilo de tabela com listras
-      headStyles: {
-        fillColor: primaryColor,
-        textColor: '#ffffff', // Texto branco no cabeçalho
-      },
-      bodyStyles: {
-        textColor: textColor,
-      },
-    });
-
-    // Adiciona a tabela de receitas
-    pdf.setFontSize(14);
-    pdf.setTextColor(secondaryColor);
-    pdf.text("Lista de Receitas", 10, pdf.autoTable.previous.finalY + 10);
-
-    pdf.setFontSize(12);
-    pdf.setTextColor(textColor);
-    pdf.autoTable({
-      startY: pdf.autoTable.previous.finalY + 15,
-      head: [['Descrição', 'Valor (R$)', 'Data']],
-      body: receitasData.map(item => [
-        item.description || 'N/A',
-        item.amount?.toFixed(2) || '0.00',
-        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
-      ]),
-      theme: 'striped',
-      headStyles: {
-        fillColor: primaryColor,
-        textColor: '#ffffff',
-      },
-      bodyStyles: {
-        textColor: textColor,
-      },
-    });
-
-    // Adiciona a tabela de dívidas
-    pdf.setFontSize(14);
-    pdf.setTextColor(secondaryColor);
-    pdf.text("Lista de Dívidas", 10, pdf.autoTable.previous.finalY + 10);
-
-    pdf.setFontSize(12);
-    pdf.setTextColor(textColor);
-    pdf.autoTable({
-      startY: pdf.autoTable.previous.finalY + 15,
-      head: [['Descrição', 'Valor (R$)', 'Data']],
-      body: dividasData.map(item => [
-        item.description || 'N/A',
-        item.amount?.toFixed(2) || '0.00',
-        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
-      ]),
-      theme: 'striped',
-      headStyles: {
-        fillColor: primaryColor,
-        textColor: '#ffffff',
-      },
-      bodyStyles: {
-        textColor: textColor,
-      },
-    });
-
-    // Adiciona a tabela de saídas
-    pdf.setFontSize(14);
-    pdf.setTextColor(secondaryColor);
-    pdf.text("Lista de Saídas", 10, pdf.autoTable.previous.finalY + 10);
-
-    pdf.setFontSize(12);
-    pdf.setTextColor(textColor);
-    pdf.autoTable({
-      startY: pdf.autoTable.previous.finalY + 15,
-      head: [['Descrição', 'Valor (R$)', 'Data']],
-      body: saidasData.map(item => [
-        item.description || 'N/A',
-        item.amount?.toFixed(2) || '0.00',
-        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
-      ]),
-      theme: 'striped',
-      headStyles: {
-        fillColor: primaryColor,
-        textColor: '#ffffff',
-      },
-      bodyStyles: {
-        textColor: textColor,
-      },
-    });
-
-    // Adiciona o gráfico (se disponível)
-    const canvas = document.getElementById('financeChart');
-    if (canvas) {
-      const imgData = await html2canvas(canvas).then(canvas => canvas.toDataURL('image/png'));
-
-      // Verifica se há espaço suficiente para o gráfico na página atual
-      const spaceLeft = pdf.internal.pageSize.height - pdf.autoTable.previous.finalY;
-      if (spaceLeft < 120) { // Se o espaço for menor que 120 unidades, cria uma nova página
-        pdf.addPage();
-        pdf.setPage(pdf.internal.getNumberOfPages()); // Define a nova página como ativa
-        pdf.autoTable.previous.finalY = 10; // Reinicia a posição Y para o topo da nova página
-      }
-
-      pdf.addImage(imgData, 'PNG', 10, pdf.autoTable.previous.finalY + 10, 180, 100); // Ajuste as dimensões conforme necessário
-    }
-
-    // Adiciona o rodapé
-    pdf.setFontSize(10);
-    pdf.setTextColor(textColor);
-    pdf.setFont('helvetica', 'italic');
-    pdf.text("Sistema Financeiro - Relatório Gerado Automaticamente", 10, pdf.internal.pageSize.height - 10);
-
-    // Salva o PDF com o nome "resumo_mes.pdf"
-    pdf.save('resumo_mes.pdf');
-  } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
-    alert('Erro ao gerar PDF. Por favor, tente novamente.');
-  }
-}
-
-    // Função para alternar o menu lateral em telas pequenas
-    function toggleSidebar() {
-      const sidebar = document.querySelector('.sidebar');
-      sidebar.classList.toggle('active');
-    }
-
-    // Função para buscar dados do dashboard
-    async function fetchDashboardData() {
-      try {
-        const response = await fetch('/dashboard-data');
-        if (!response.ok) {
-          throw new Error('Erro ao buscar dados do dashboard');
-        }
-        const data = await response.json();
-        console.log('Dados recebidos:', data); // Depuração
-
-        // Atualizar os cards
-        document.querySelector('.card:nth-child(1) p').textContent = `R$ ${data.balance.toFixed(2)}`;
-        document.querySelector('.card:nth-child(2) p').textContent = `R$ ${data.totalIncome.toFixed(2)}`;
-        document.querySelector('.card:nth-child(3) p').textContent = `R$ ${data.totalExpenses.toFixed(2)}`;
-
-        // Atualizar o gráfico
-        const ctx = document.getElementById('financeChart').getContext('2d');
-
-        // Destruir o gráfico existente, se houver
-        if (window.financeChart && typeof window.financeChart.destroy === 'function') {
-          window.financeChart.destroy();
         }
 
-        // Criar um novo gráfico
-        window.financeChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: data.chartData.labels,
-            datasets: [{
-              label: 'Receitas',
-              data: data.chartData.incomeData,
-              backgroundColor: '#3498db',
-              borderColor: '#3498db',
-              borderWidth: 1,
-            }, {
-              label: 'Despesas',
-              data: data.chartData.expensesData,
-              backgroundColor: '#e74c3c',
-              borderColor: '#e74c3c',
-              borderWidth: 1,
-            }]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true
-              }
+        // Buscar dados ao carregar a página
+        fetchDashboardData();
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        // Função para gerar o PDF
+        async function generatePDF() {
+            try {
+                // Busca os dados do dashboard
+                const dashboardResponse = await fetch('/dashboard-data');
+                if (!dashboardResponse.ok) {
+                    throw new Error('Erro ao buscar dados do dashboard');
+                }
+                const dashboardData = await dashboardResponse.json();
+
+                // Busca as receitas
+                const receitasResponse = await fetch('/api/receitas');
+                if (!receitasResponse.ok) {
+                    throw new Error('Erro ao buscar receitas');
+                }
+                const receitasData = await receitasResponse.json();
+
+                // Busca as dívidas
+                const dividasResponse = await fetch('/api/dividas');
+                if (!dividasResponse.ok) {
+                    throw new Error('Erro ao buscar dívidas');
+                }
+                const dividasData = await dividasResponse.json();
+
+                // Busca as saídas
+                const saidasResponse = await fetch('/api/saidas');
+                if (!saidasResponse.ok) {
+                    throw new Error('Erro ao buscar saídas');
+                }
+                const saidasData = await saidasResponse.json();
+
+                // Verifica se os dados estão no formato esperado
+                if (!Array.isArray(receitasData)) {
+                    throw new Error('Dados de receitas não são um array');
+                }
+                if (!Array.isArray(dividasData)) {
+                    throw new Error('Dados de dívidas não são um array');
+                }
+                if (!Array.isArray(saidasData)) {
+                    throw new Error('Dados de saídas não são um array');
+                }
+
+                // Cria um novo PDF
+                const pdf = new jspdf.jsPDF();
+
+                // Configurações de estilo
+                const primaryColor = '#4CAF50'; // Verde
+                const secondaryColor = '#3498db'; // Azul
+                const textColor = '#333333'; // Cinza escuro
+
+                // Adiciona o cabeçalho
+                pdf.setFontSize(22);
+                pdf.setTextColor(primaryColor);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text("Resumo Financeiro do Mês", 10, 20);
+
+                // Adiciona a data atual
+                pdf.setFontSize(12);
+                pdf.setTextColor(textColor);
+                pdf.setFont('helvetica', 'normal');
+                const today = new Date().toLocaleDateString('pt-BR');
+                pdf.text(`Data: ${today}`, 10, 30);
+
+                // Adiciona uma linha divisória
+                pdf.setDrawColor(primaryColor);
+                pdf.setLineWidth(0.5);
+                pdf.line(10, 35, 200, 35);
+
+                // Adiciona os dados financeiros em uma tabela
+                pdf.setFontSize(14);
+                pdf.setTextColor(secondaryColor);
+                pdf.text("Dados Financeiros", 10, 45);
+
+                pdf.setFontSize(12);
+                pdf.setTextColor(textColor);
+                pdf.autoTable({
+                    startY: 50,
+                    head: [['Descrição', 'Valor (R$)']],
+                    body: [
+                        ['Saldo Atual', dashboardData.balance?.toFixed(2) || '0.00'],
+                        ['Receitas Totais', dashboardData.totalIncome?.toFixed(2) || '0.00'],
+                        ['Despesas Totais', dashboardData.totalExpenses?.toFixed(2) || '0.00'],
+                        ['Saídas Totais', dashboardData.totalOutflows?.toFixed(2) || '0.00'], // Novo campo para saídas
+                    ],
+                    theme: 'striped', // Estilo de tabela com listras
+                    headStyles: {
+                        fillColor: primaryColor,
+                        textColor: '#ffffff', // Texto branco no cabeçalho
+                    },
+                    bodyStyles: {
+                        textColor: textColor,
+                    },
+                });
+
+                // Adiciona a tabela de receitas
+                pdf.setFontSize(14);
+                pdf.setTextColor(secondaryColor);
+                pdf.text("Lista de Receitas", 10, pdf.autoTable.previous.finalY + 10);
+
+                pdf.setFontSize(12);
+                pdf.setTextColor(textColor);
+                pdf.autoTable({
+                    startY: pdf.autoTable.previous.finalY + 15,
+                    head: [['Descrição', 'Valor (R$)', 'Data']],
+                    body: receitasData.map(item => [
+                        item.description || 'N/A',
+                        item.amount?.toFixed(2) || '0.00',
+                        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
+                    ]),
+                    theme: 'striped',
+                    headStyles: {
+                        fillColor: primaryColor,
+                        textColor: '#ffffff',
+                    },
+                    bodyStyles: {
+                        textColor: textColor,
+                    },
+                });
+
+                // Adiciona a tabela de dívidas
+                pdf.setFontSize(14);
+                pdf.setTextColor(secondaryColor);
+                pdf.text("Lista de Dívidas", 10, pdf.autoTable.previous.finalY + 10);
+
+                pdf.setFontSize(12);
+                pdf.setTextColor(textColor);
+                pdf.autoTable({
+                    startY: pdf.autoTable.previous.finalY + 15,
+                    head: [['Descrição', 'Valor (R$)', 'Data']],
+                    body: dividasData.map(item => [
+                        item.description || 'N/A',
+                        item.amount?.toFixed(2) || '0.00',
+                        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
+                    ]),
+                    theme: 'striped',
+                    headStyles: {
+                        fillColor: primaryColor,
+                        textColor: '#ffffff',
+                    },
+                    bodyStyles: {
+                        textColor: textColor,
+                    },
+                });
+
+                // Adiciona a tabela de saídas
+                pdf.setFontSize(14);
+                pdf.setTextColor(secondaryColor);
+                pdf.text("Lista de Saídas", 10, pdf.autoTable.previous.finalY + 10);
+
+                pdf.setFontSize(12);
+                pdf.setTextColor(textColor);
+                pdf.autoTable({
+                    startY: pdf.autoTable.previous.finalY + 15,
+                    head: [['Descrição', 'Valor (R$)', 'Data']],
+                    body: saidasData.map(item => [
+                        item.description || 'N/A',
+                        item.amount?.toFixed(2) || '0.00',
+                        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
+                    ]),
+                    theme: 'striped',
+                    headStyles: {
+                        fillColor: primaryColor,
+                        textColor: '#ffffff',
+                    },
+                    bodyStyles: {
+                        textColor: textColor,
+                    },
+                });
+
+                // Adiciona o gráfico (se disponível)
+                const canvas = document.getElementById('financeChart');
+                if (canvas) {
+                    const imgData = await html2canvas(canvas).then(canvas => canvas.toDataURL('image/png'));
+
+                    // Verifica se há espaço suficiente para o gráfico na página atual
+                    const spaceLeft = pdf.internal.pageSize.height - pdf.autoTable.previous.finalY;
+                    if (spaceLeft < 120) { // Se o espaço for menor que 120 unidades, cria uma nova página
+                        pdf.addPage();
+                        pdf.setPage(pdf.internal.getNumberOfPages()); // Define a nova página como ativa
+                        pdf.autoTable.previous.finalY = 10; // Reinicia a posição Y para o topo da nova página
+                    }
+
+                    pdf.addImage(imgData, 'PNG', 10, pdf.autoTable.previous.finalY + 10, 180, 100); // Ajuste as dimensões conforme necessário
+                }
+
+                // Adiciona o rodapé
+                pdf.setFontSize(10);
+                pdf.setTextColor(textColor);
+                pdf.setFont('helvetica', 'italic');
+                pdf.text("Sistema Financeiro - Relatório Gerado Automaticamente", 10, pdf.internal.pageSize.height - 10);
+
+                // Salva o PDF com o nome "resumo_mes.pdf"
+                pdf.save('resumo_mes.pdf');
+            } catch (error) {
+                console.error('Erro ao gerar PDF:', error);
+                alert('Erro ao gerar PDF. Por favor, tente novamente.');
             }
-          }
-        });
-      } catch (error) {
-        console.error('Erro:', error);
-      }
-    }
-
-    // Buscar dados ao carregar a página
-    fetchDashboardData();
-  </script>
-   
+        }
+    </script>
 </body>
 </html>
