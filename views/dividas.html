@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="/css/dividas.css">
   <link rel="stylesheet" href="/css/dashboard.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <title>Listar Dívidas - Sistema Financeiro</title>
 </head>
 <body>
@@ -14,13 +14,13 @@
   <div class="sidebar">
     <h2>Financeiro</h2>
     <nav>
-        <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
-        <a href="/recibo"><i class="fas fa-file-invoice"></i> Gerar Recibo</a>
-        <a href="/add-item"><i class="fas fa-plus"></i> Adicionar Item</a>
-        <a href="/dividas" class="active"><i class="fas fa-file-invoice-dollar"></i> Dívidas</a>
-        <a href="/receitas"><i class="fas fa-money-bill-wave"></i> Receitas</a>
-        <a href="/saidas"><i class="fas fa-money-bill-alt"></i> Saídas</a>
-        <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      <a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a>
+      <a href="/recibo"><i class="fas fa-file-invoice"></i> Gerar Recibo</a>
+      <a href="/add-item"><i class="fas fa-plus"></i> Adicionar Item</a>
+      <a href="/dividas" class="active"><i class="fas fa-file-invoice-dollar"></i> Dívidas</a>
+      <a href="/receitas"><i class="fas fa-money-bill-wave"></i> Receitas</a>
+      <a href="/saidas"><i class="fas fa-money-bill-alt"></i> Saídas</a>
+      <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </nav>
   </div>
   <!-- Cabeçalho fixo -->
@@ -30,11 +30,24 @@
   </header>
   <!-- Conteúdo principal -->
   <div class="main-content">
-    <!-- Barra de Pesquisa -->
-    <div class="search-container">
-      <input type="text" id="searchInput" placeholder="Pesquisar por descrição..." oninput="filterDividas()">
-      <i class="fas fa-search"></i>
-    </div>
+    <!-- Botões de Filtro por Status -->
+  <div class="filtro-status">
+    <button class="btn-filtro active" onclick="filtrarPorStatus('todos')">
+      <i class="fas fa-list"></i> Todos
+    </button>
+    <button class="btn-filtro" onclick="filtrarPorStatus('pago')">
+      <i class="fas fa-check-circle"></i> Pago
+    </button>
+    <button class="btn-filtro" onclick="filtrarPorStatus('pendente')">
+      <i class="fas fa-clock"></i> Pendente
+    </button>
+  </div>
+
+  <!-- Barra de Pesquisa (mantida como está) -->
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Pesquisar por descrição..." oninput="filterDividas()">
+    <i class="fas fa-search"></i>
+  </div>
 
     <!-- Tabela de Dívidas -->
     <div class="table-container">
@@ -43,6 +56,7 @@
           <tr>
             <th>Descrição</th>
             <th>Valor Total</th>
+            <th>Valor Restante</th>
             <th>Parcelas Restantes</th>
             <th>Valor por Parcela</th>
             <th>Ações</th>
@@ -55,126 +69,432 @@
     </div>
   </div>
 
+  <!-- Modal para exibir parcelas pagas -->
+  <div id="modalParcelas" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="fecharModal()">&times;</span>
+      <h2>Parcelas Pagas</h2>
+      <div id="parcelas-pagas-list"></div>
+    </div>
+  </div>
+
   <script>
     // Função para alternar o menu lateral em telas pequenas
     function toggleSidebar() {
       const sidebar = document.querySelector('.sidebar');
       sidebar.classList.toggle('active');
     }
+
+    // Função para abrir o modal
+    function abrirModal() {
+      document.getElementById('modalParcelas').style.display = 'block';
+    }
+
+    // Função para fechar o modal
+    function fecharModal() {
+      document.getElementById('modalParcelas').style.display = 'none';
+    }
+
+    // Função para buscar o saldo atual
+    async function getSaldoAtual() {
+      try {
+        const response = await fetch('/dashboard-data');
+        if (!response.ok) {
+          throw new Error('Erro ao buscar saldo atual');
+        }
+        const data = await response.json();
+        return data.balance; // Retorna o saldo atual
+      } catch (error) {
+        console.error('Erro ao buscar saldo:', error);
+        return 0; // Retorna 0 em caso de erro
+      }
+    }
+
+    // Função para carregar as dívidas
+    async function loadDividas() {
+  try {
+    const response = await fetch('/api/dividas');
+    if (!response.ok) {
+      throw new Error('Erro ao carregar dívidas');
+    }
+    const dividas = await response.json();
+    const tbody = document.getElementById('dividas-list');
+
+    tbody.innerHTML = '';
+
+    // Busca o saldo atual
+    const saldoAtual = await getSaldoAtual();
+
+    dividas.forEach(divida => {
+      const row = document.createElement('tr');
+      
+      // Verifica se é uma dívida parcelada
+      const isParcelada = divida.installment && divida.installmentCount > 0;
+      
+      // Usa o valor fixo da parcela que deve vir do banco de dados
+      const valorParcela = isParcelada ? 
+                         (divida.valorParcela || (divida.amount / divida.installmentCount)) : 0;
+      
+      // Calcula o valor já pago
+      const valorPago = divida.valorPago || 0;
+      
+      // Calcula valor restante
+      const valorRestante = divida.amount - valorPago;
+      
+      // Calcula parcelas restantes
+      const parcelasRestantes = isParcelada ? 
+                              Math.ceil(valorRestante / valorParcela) : 0;
+      
+      // Verifica se a dívida está paga
+      const isPaga = divida.status === 'paga' || valorRestante <= 0;
+
+      // Verifica se o saldo é suficiente para pagar uma parcela
+      const saldoSuficienteParcela = isParcelada && saldoAtual >= valorParcela && parcelasRestantes > 0;
+
+      // Verifica se o saldo é suficiente para quitar a dívida
+      const saldoSuficienteAvista = !isPaga && saldoAtual >= valorRestante && valorRestante > 0;
+
+      // Botão "Pagar Parcela"
+      const pagarParcelaButton = isParcelada && !isPaga
+        ? `<button class="pagar-parcela" ${saldoSuficienteParcela ? '' : 'disabled'} 
+           onclick="pagarParcela('${divida.id}', ${valorParcela.toFixed(2)})">
+           <i class="fas fa-coins"></i> Parcela</button>`
+        : '';
+
+      // Botão "Ver Parcelas Pagas"
+      const verParcelasButton = isParcelada && valorPago > 0
+        ? `<button class="ver-parcelas" onclick="verParcelasPagas('${divida.id}')">
+           <i class="fas fa-list"></i> Ver Parcelas</button>`
+        : '';
+
+      // Botão "Quitar"
+      const pagarAvistaButton = !isPaga
+        ? `<button class="pagar-avista" ${saldoSuficienteAvista ? '' : 'disabled'} 
+           onclick="pagarAvista('${divida.id}', ${valorRestante.toFixed(2)})">
+           <i class="fas fa-money-bill-wave"></i> Quitar</button>`
+        : '';
+
+      // Botão "Deletar"
+      const deletarButton = `<button class="deletar" onclick="deletarDivida('${divida.id}')">
+                            <i class="fas fa-trash"></i> Deletar</button>`;
+
+      // Card de status
+      const statusCard = isPaga
+        ? `<div class="status-card pago">Pago</div>`
+        : `<div class="status-card pendente">Pendente</div>`;
+
+      row.innerHTML = `
+        <td data-label="Descrição">
+          ${statusCard}
+          ${divida.description}
+        </td>
+        <td data-label="Valor Total">R$ ${divida.amount.toFixed(2)}</td>
+        <td data-label="Valor Restante">R$ ${valorRestante.toFixed(2)}</td>
+        <td data-label="Parcelas Restantes">${isParcelada ? parcelasRestantes : 'SEM PARCELAS'}</td>
+        <td data-label="Valor por Parcela">${isParcelada ? 'R$ ' + valorParcela.toFixed(2) : 'R$0.00'}</td>
+        <td data-label="Ações">
+          ${pagarParcelaButton}
+          ${verParcelasButton}
+          ${pagarAvistaButton}
+          ${deletarButton}
+        </td>
+      `;
+
+      tbody.appendChild(row);
+    });
+  } catch (error) {
+    console.error('Erro ao carregar dívidas:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Erro',
+      text: 'Erro ao carregar dívidas. Por favor, tente novamente.',
+    });
+  }
+}
+
+// Função para ver parcelas pagas - CORRIGIDA
+async function verParcelasPagas(id) {
+  try {
+    const response = await fetch(`/api/dividas/${id}/parcelas-pagas`);
+    if (!response.ok) {
+      throw new Error('Erro ao carregar parcelas pagas');
+    }
+    const parcelasPagas = await response.json();
+
+    const parcelasPagasList = document.getElementById('parcelas-pagas-list');
+    
+    if (parcelasPagas.length === 0) {
+      parcelasPagasList.innerHTML = '<p>Nenhuma parcela paga ainda</p>';
+    } else {
+      parcelasPagasList.innerHTML = parcelasPagas.map(parcela => `
+        <div class="parcela-item">
+          <p><strong>Data:</strong> ${new Date(parcela.dataPagamento).toLocaleDateString()}</p>
+          <p><strong>Valor:</strong> R$ ${parcela.valorPago.toFixed(2)}</p>
+          <hr>
+        </div>
+      `).join('');
+    }
+
+    abrirModal();
+  } catch (error) {
+    console.error('Erro ao carregar parcelas pagas:', error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Erro',
+      text: 'Erro ao carregar parcelas pagas. Por favor, tente novamente.',
+    });
+  }
+}
+
+// Função para pagar uma parcela - COM CONFIRMAÇÃO
+async function pagarParcela(id, valorParcela) {
+  try {
+    const result = await Swal.fire({
+      title: 'Confirmar pagamento',
+      html: `Deseja realmente pagar esta parcela de <b>R$ ${valorParcela.toFixed(2)}</b>?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sim, pagar!',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    const saldoAtual = await getSaldoAtual();
+
+    if (saldoAtual < valorParcela) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Saldo insuficiente',
+        text: 'Você não tem saldo suficiente para pagar esta parcela.',
+      });
+      return;
+    }
+
+    const response = await fetch(`/api/dividas/${id}/pagar-parcela`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ valorPago: valorParcela }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao pagar parcela');
+    }
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Sucesso!',
+      html: `Parcela de <b>R$ ${valorParcela.toFixed(2)}</b> paga com sucesso!`,
+    });
+    
+    loadDividas();
+  } catch (error) {
+    console.error('Erro ao pagar parcela:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Erro',
+      text: 'Erro ao pagar parcela. Por favor, tente novamente.',
+    });
+  }
+}
+
+// Função para pagar à vista - COM CONFIRMAÇÃO
+async function pagarAvista(id, valorRestante) {
+  try {
+    const result = await Swal.fire({
+      title: 'Confirmar quitação',
+      html: `Deseja realmente quitar esta dívida por <b>R$ ${valorRestante.toFixed(2)}</b>?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sim, quitar!',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    const saldoAtual = await getSaldoAtual();
+
+    if (saldoAtual < valorRestante) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Saldo insuficiente',
+        text: 'Você não tem saldo suficiente para quitar esta dívida.',
+      });
+      return;
+    }
+
+    const response = await fetch(`/api/dividas/${id}/pagar-avista`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ valorPago: valorRestante }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao pagar à vista');
+    }
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Sucesso!',
+      html: `Dívida quitada por <b>R$ ${valorRestante.toFixed(2)}</b> com sucesso!`,
+    });
+    
+    loadDividas();
+  } catch (error) {
+    console.error('Erro ao pagar à vista:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Erro',
+      text: 'Erro ao pagar à vista. Por favor, tente novamente.',
+    });
+  }
+}
+// Função para deletar uma dívida - CORRIGIDA
+async function deletarDivida(id) {
+  try {
+    const result = await Swal.fire({
+      title: 'Tem certeza?',
+      text: "Você não poderá reverter esta ação!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sim, deletar!',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!result.isConfirmed) return;
+
+    const response = await fetch(`/api/dividas/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao deletar dívida');
+    }
+
+    await Swal.fire(
+      'Deletado!',
+      'A dívida foi deletada com sucesso.',
+      'success'
+    );
+    
+    loadDividas();
+  } catch (error) {
+    console.error('Erro ao deletar dívida:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Erro',
+      text: 'Erro ao deletar dívida. Por favor, tente novamente.',
+    });
+  }
+}
+
+// Carregar as dívidas ao abrir a página
+document.addEventListener('DOMContentLoaded', loadDividas);
   </script>
 
-  <!-- Script para carregar e gerenciar dívidas -->
+
   <script>
-    // Função para carregar as dívidas
-async function loadDividas() {
-    try {
-        const response = await fetch('/api/dividas');
-        if (!response.ok) {
-            throw new Error('Erro ao carregar dívidas');
-        }
-        const dividas = await response.json();
-        const tbody = document.getElementById('dividas-list');
-
-        tbody.innerHTML = '';
-
-        dividas.forEach(divida => {
-            const row = document.createElement('tr');
-            const installmentCount = divida.installmentCount === null ? 'Sem parcelas' : divida.installmentCount;
-            const valorParcela = divida.installmentCount > 0 ? (divida.amount / divida.installmentCount).toFixed(2) : '0.00';
-            const pagarParcelaButton = divida.installmentCount > 0 ? `<button class="pagar-parcela" onclick="pagarParcela('${divida.id}')"><i class="fas fa-coins"></i> Parcela</button>` : '';
-
-            row.innerHTML = `
-                <td data-label="Descrição">${divida.description}</td>
-                <td data-label="Valor Total">R$ ${divida.amount.toFixed(2)}</td>
-                <td data-label="Parcelas Restantes">${installmentCount}</td>
-                <td data-label="Valor por Parcela">R$ ${valorParcela}</td>
-                <td data-label="Ações">
-                    ${pagarParcelaButton}
-                    <button class="pagar-avista" onclick="pagarAvista('${divida.id}')"><i class="fas fa-money-bill-wave"></i> Quitar</button>
-                    <button class="deletar" onclick="deletarDivida('${divida.id}')"><i class="fas fa-trash"></i> Deletar</button>
-                </td>
-            `;
-
-            tbody.appendChild(row);
-        });
-    } catch (error) {
-        console.error('Erro ao carregar dívidas:', error);
-        alert('Erro ao carregar dívidas. Por favor, tente novamente.');
-    }
-}
-    // Função para filtrar as dívidas na tabela
+    // Função para filtrar dívidas
     function filterDividas() {
-      const input = document.getElementById('searchInput');
-      const filter = input.value.toUpperCase();
-      const tbody = document.getElementById('dividas-list');
-      const rows = tbody.getElementsByTagName('tr');
-
-      for (let i = 0; i < rows.length; i++) {
-        const descricao = rows[i].getElementsByTagName('td')[0];
-        if (descricao) {
-          const txtValue = descricao.textContent || descricao.innerText;
-          if (txtValue.toUpperCase().indexOf(filter) > -1) {
-            rows[i].style.display = '';
-          } else {
-            rows[i].style.display = 'none';
-          }
-        }
-      }
+  const input = document.getElementById('searchInput');
+  const searchTerm = input.value.trim().toUpperCase();
+  const table = document.querySelector('table');
+  const tr = table.getElementsByTagName('tr');
+  
+  // Normaliza o termo de busca (remove acentos e formatação de moeda)
+  const normalizeText = (text) => {
+    return text
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/[^\w\s,]/gi, ''); // Remove símbolos exceto vírgulas (para valores)
+  };
+  
+  // Verifica se um texto corresponde ao termo de busca
+  const matchesSearch = (text) => {
+    const normalizedText = normalizeText(text.toUpperCase());
+    const normalizedSearch = normalizeText(searchTerm);
+    
+    // Se for um valor monetário, remove "R$", pontos e compara números
+    if (normalizedSearch.match(/[\d,]+/)) {
+      const cleanText = normalizedText.replace(/[^\d,]/g, '');
+      const cleanSearch = normalizedSearch.replace(/[^\d,]/g, '');
+      return cleanText.includes(cleanSearch);
     }
-
-    // Função para pagar uma parcela
-    async function pagarParcela(id) {
-      try {
-        const response = await fetch(`/api/dividas/${id}/pagar-parcela`, {
-          method: 'POST',
-        });
-        if (!response.ok) {
-          throw new Error('Erro ao pagar parcela');
-        }
-        alert('Parcela paga com sucesso!');
-        loadDividas(); // Recarregar a lista de dívidas
-      } catch (error) {
-        console.error('Erro ao pagar parcela:', error);
-        alert('Erro ao pagar parcela. Por favor, tente novamente.');
-      }
+    
+    return normalizedText.includes(normalizedSearch);
+  };
+  
+  // Loop através das linhas da tabela (ignorando o cabeçalho)
+  for (let i = 1; i < tr.length; i++) {
+    const cells = tr[i].getElementsByTagName('td');
+    const tdDescricao = cells[0]; // Descrição (1ª coluna)
+    const tdValorTotal = cells[1]; // Valor Total (2ª coluna)
+    const tdValorRestante = cells[2]; // Valor Restante (3ª coluna)
+    const tdParcelas = cells[3]; // Parcelas Restantes (4ª coluna)
+    const tdValorParcela = cells[4]; // Valor por Parcela (5ª coluna - NOVO)
+    const tdStatus = tr[i].querySelector('.status-card'); // Status (card na 1ª coluna)
+    
+    let shouldDisplay = false;
+    
+    if (tdDescricao || tdValorTotal || tdValorRestante || tdParcelas || tdValorParcela || tdStatus) {
+      const descricao = tdDescricao.textContent || tdDescricao.innerText;
+      const valorTotal = tdValorTotal.textContent || tdValorTotal.innerText;
+      const valorRestante = tdValorRestante.textContent || tdValorRestante.innerText;
+      const parcelas = tdParcelas.textContent || tdParcelas.innerText;
+      const valorParcela = tdValorParcela.textContent || tdValorParcela.innerText; // Novo campo
+      const status = tdStatus ? tdStatus.textContent : '';
+      
+      // Verifica se o termo de busca corresponde a qualquer campo
+      shouldDisplay = (
+        matchesSearch(descricao) ||
+        matchesSearch(valorTotal) ||
+        matchesSearch(valorRestante) ||
+        matchesSearch(parcelas) ||
+        matchesSearch(valorParcela) || // Adicionado busca por valor da parcela
+        matchesSearch(status)
+      );
     }
-
-    // Função para pagar à vista
-    async function pagarAvista(id) {
-      try {
-        const response = await fetch(`/api/dividas/${id}/pagar-avista`, {
-          method: 'POST',
-        });
-        if (!response.ok) {
-          throw new Error('Erro ao pagar à vista');
-        }
-        alert('Dívida paga à vista com sucesso!');
-        loadDividas(); // Recarregar a lista de dívidas
-      } catch (error) {
-        console.error('Erro ao pagar à vista:', error);
-        alert('Erro ao pagar à vista. Por favor, tente novamente.');
-      }
+    
+    tr[i].style.display = shouldDisplay ? '' : 'none';
+  }
+}
+// Função para filtrar por status (Pago/Pendente/Todos)
+function filtrarPorStatus(status) {
+  const rows = document.querySelectorAll('tbody tr');
+  const buttons = document.querySelectorAll('.btn-filtro');
+  
+  // Ativa o botão clicado e desativa os outros
+  buttons.forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.textContent.toLowerCase().includes(status)) {
+      btn.classList.add('active');
     }
+  });
 
-    // Função para deletar uma dívida
-    async function deletarDivida(id) {
-      try {
-        const response = await fetch(`/api/dividas/${id}`, {
-          method: 'DELETE',
-        });
-        if (!response.ok) {
-          throw new Error('Erro ao deletar dívida');
-        }
-        alert('Dívida deletada com sucesso!');
-        loadDividas(); // Recarregar a lista de dívidas
-      } catch (error) {
-        console.error('Erro ao deletar dívida:', error);
-        alert('Erro ao deletar dívida. Por favor, tente novamente.');
-      }
+  // Filtra as linhas da tabela
+  rows.forEach(row => {
+    const statusCard = row.querySelector('.status-card');
+    const rowStatus = statusCard ? statusCard.textContent.toLowerCase() : '';
+    
+    if (status === 'todos') {
+      row.style.display = '';
+    } else {
+      row.style.display = rowStatus.includes(status) ? '' : 'none';
     }
+  });
 
-    // Carregar as dívidas ao abrir a página
-    loadDividas();
+  // Limpa a barra de pesquisa ao usar filtro
+  document.getElementById('searchInput').value = '';
+}
   </script>
 </body>
 </html>

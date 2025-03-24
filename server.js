@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const cors = require('cors');
 const path = require('path'); // Importa o módulo 'path'
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -11,7 +12,7 @@ const port = 3000;
 
 app.use(express.static('public'));
 
-
+app.use(cors());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(session({
@@ -90,35 +91,31 @@ app.get('/logout', isAuthenticated, (req, res) => {
 
 // Rota POST para adicionar item
 app.post('/add-item', isAuthenticated, async (req, res) => {
-  if (!req.session.userId) {
-      return res.redirect('/login');
-  }
-
-  const { type, description, amount, installment, installmentCount } = req.body;
-
   try {
-      // Salvar o item no banco de dados
-      const newItem = await prisma.item.create({
-          data: {
-              type,
-              description,
-              amount: parseFloat(amount),
-              installment: installment === 'sim',
-              installmentCount: installment === 'sim' ? parseInt(installmentCount) : null,
-              userId: req.session.userId // Associar o item ao usuário logado
-          }
-      });
+    const { type, description, amount, installment, installmentCount } = req.body;
+    
+    let valorParcela = null;
+    if (type === 'divida' && installment === 'sim' && installmentCount) {
+      valorParcela = parseFloat(amount) / parseInt(installmentCount);
+    }
 
-      // Redireciona com uma mensagem de sucesso na URL
-      res.redirect('/add-item?success=Item adicionado com sucesso!');
+    const newItem = await prisma.item.create({
+      data: {
+        type,
+        description,
+        amount: parseFloat(amount),
+        installment: installment === 'sim',
+        installmentCount: installment === 'sim' ? parseInt(installmentCount) : null,
+        valorParcela: valorParcela, // Armazena o valor FIXO
+        userId: req.session.userId
+      }
+    });
+
+    res.redirect('/add-item?success=Item adicionado com sucesso!');
   } catch (error) {
-      console.error('Erro ao adicionar item:', error);
-
-      // Redireciona com uma mensagem de erro na URL
-      res.redirect('/add-item?error=Erro ao adicionar item. Tente novamente.');
+    res.redirect('/add-item?error=Erro ao adicionar item');
   }
 });
-
 // Rota para a página de adicionar item
 app.get('/add-item',  isAuthenticated, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'add-item.html'));
@@ -130,43 +127,94 @@ app.get('/add-item',  isAuthenticated, (req, res) => {
     }
 
     try {
-        // Recuperar todos os itens do usuário logado
+        // Recuperar todos os itens do usuário logado, incluindo as parcelas pagas
         const items = await prisma.item.findMany({
             where: {
                 userId: req.session.userId,
             },
+            include: {
+                parcelasPagas: true, // Incluir as parcelas pagas
+            },
         });
 
-        // Calcular receitas, despesas, saídas e saldo
+        // Inicializar totais
         let totalIncome = 0;      // Total de receitas
-        let totalExpenses = 0;    // Total de despesas (dívidas)
         let totalOutflows = 0;    // Total de saídas
+        let totalParcelasPagas = 0; // Total de parcelas pagas
+        let totalExpenses = 0;    // Total de despesas (dívidas pendentes)
 
+        // Processar cada item
         items.forEach((item) => {
             if (item.type === 'entrada') {
-                totalIncome += item.amount; // Soma as receitas
-            } else if (item.type === 'divida') {
-                totalExpenses += item.amount; // Soma as despesas (dívidas)
+                // Soma as receitas
+                totalIncome += item.amount;
             } else if (item.type === 'saida') {
-                totalOutflows += item.amount; // Soma as saídas
+                // Soma as saídas
+                totalOutflows += item.amount;
+            } else if (item.type === 'divida' && item.status !== 'paga') {
+                // Soma as despesas (dívidas pendentes)
+                if (item.installment) {
+                    // Se for parcelada, soma apenas o valor das parcelas pendentes
+                    const totalParcelas = item.installmentCount || 0;
+                    const parcelasPagas = item.parcelasPagas.length;
+                    const valorPorParcela = item.amount / totalParcelas;
+                    const parcelasPendentes = totalParcelas - parcelasPagas;
+
+                    totalExpenses += valorPorParcela * parcelasPendentes;
+                } else {
+                    // Se não for parcelada, soma o valor total da dívida
+                    totalExpenses += item.amount;
+                }
+            }
+
+            // Soma o valor das parcelas pagas
+            if (item.parcelasPagas && item.parcelasPagas.length > 0) {
+                item.parcelasPagas.forEach((parcela) => {
+                    totalParcelasPagas += parcela.valorPago;
+                });
             }
         });
 
-        const balance = totalIncome - totalExpenses - totalOutflows; // Saldo considerando receitas, despesas e saídas
+        // Calcular o saldo (apenas entradas - saídas - parcelas pagas)
+        const balance = totalIncome - totalOutflows - totalParcelasPagas;
 
         // Dados para o gráfico (agrupados por mês)
         const monthlyData = items.reduce((acc, item) => {
             const month = new Date(item.createdAt).toLocaleString('default', { month: 'short' });
             if (!acc[month]) {
-                acc[month] = { income: 0, expenses: 0, outflows: 0 }; // Inicializa os valores do mês
+                acc[month] = { income: 0, expenses: 0, outflows: 0, parcelasPagas: 0 }; // Inicializa os valores do mês
             }
+
             if (item.type === 'entrada') {
                 acc[month].income += item.amount; // Soma as receitas do mês
-            } else if (item.type === 'divida') {
-                acc[month].expenses += item.amount; // Soma as despesas (dívidas) do mês
             } else if (item.type === 'saida') {
                 acc[month].outflows += item.amount; // Soma as saídas do mês
+            } else if (item.type === 'divida' && item.status !== 'paga') {
+                // Soma as despesas (dívidas) do mês, apenas se não estiverem pagas
+                if (item.installment) {
+                    // Se for parcelada, soma apenas o valor das parcelas pendentes
+                    const totalParcelas = item.installmentCount || 0;
+                    const parcelasPagas = item.parcelasPagas.length;
+                    const valorPorParcela = item.amount / totalParcelas;
+                    const parcelasPendentes = totalParcelas - parcelasPagas;
+
+                    acc[month].expenses += valorPorParcela * parcelasPendentes;
+                } else {
+                    // Se não for parcelada, soma o valor total da dívida
+                    acc[month].expenses += item.amount;
+                }
             }
+
+            // Soma o valor das parcelas pagas no mês
+            if (item.parcelasPagas && item.parcelasPagas.length > 0) {
+                item.parcelasPagas.forEach((parcela) => {
+                    const parcelaMonth = new Date(parcela.dataPagamento).toLocaleString('default', { month: 'short' });
+                    if (parcelaMonth === month) {
+                        acc[month].parcelasPagas += parcela.valorPago;
+                    }
+                });
+            }
+
             return acc;
         }, {});
 
@@ -174,19 +222,23 @@ app.get('/add-item',  isAuthenticated, (req, res) => {
         const incomeData = labels.map((month) => monthlyData[month].income); // Dados de receitas
         const expensesData = labels.map((month) => monthlyData[month].expenses); // Dados de despesas
         const outflowsData = labels.map((month) => monthlyData[month].outflows); // Dados de saídas
+        const parcelasPagasData = labels.map((month) => monthlyData[month].parcelasPagas); // Dados de parcelas pagas
 
         // Retorna os dados para o frontend
         res.json({
             totalIncome,
-            totalExpenses,
-            totalOutflows, // Total de saídas
+            totalOutflows,
+            totalParcelasPagas, // Total de parcelas pagas
+            totalExpenses, // Total de despesas (dívidas pendentes)
             balance,
             chartData: {
                 labels,
                 incomeData,
-                expensesData,
-                outflowsData, // Dados de saídas para o gráfico
+                expensesData, // Dados de despesas para o gráfico
+                outflowsData,
+                parcelasPagasData, // Dados de parcelas pagas para o gráfico
             },
+            items, // Incluir os itens com as parcelas pagas
         });
     } catch (error) {
         console.error('Erro ao recuperar dados do dashboard:', error);
@@ -194,136 +246,309 @@ app.get('/add-item',  isAuthenticated, (req, res) => {
     }
 });
 
+app.post('/pagar-parcela', isAuthenticated, async (req, res) => {
+  const { itemId, valorPago } = req.body;
+
+  try {
+      // Busca o saldo atual
+      const dashboardResponse = await fetch('/dashboard-data');
+      const dashboardData = await dashboardResponse.json();
+      const saldoAtual = dashboardData.balance;
+
+      // Verifica se o saldo é suficiente
+      if (saldoAtual < valorPago) {
+          return res.status(400).json({ error: 'Saldo insuficiente para pagar a parcela.' });
+      }
+
+      // Registrar o pagamento da parcela
+      const parcelaPaga = await prisma.parcelaPaga.create({
+          data: {
+              itemId,
+              valorPago,
+              dataPagamento: new Date(),
+          },
+      });
+
+      // Atualizar o status da dívida, se necessário
+      const item = await prisma.item.findUnique({ where: { id: itemId } });
+      if (item.installment) {
+          const totalParcelas = item.installmentCount || 0;
+          const parcelasPagas = await prisma.parcelaPaga.count({ where: { itemId } });
+
+          if (parcelasPagas >= totalParcelas) {
+              await prisma.item.update({
+                  where: { id: itemId },
+                  data: { status: 'paga' },
+              });
+          }
+      }
+
+      res.json({ success: true, parcelaPaga });
+  } catch (error) {
+      console.error('Erro ao pagar parcela:', error);
+      res.status(500).json({ error: 'Erro ao pagar parcela' });
+  }
+});
   // Rota para a página de dívidas
 app.get('/dividas',  isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'dividas.html'));
 });
 
-app.get('/api/dividas',  isAuthenticated, async (req, res) => {
+// Rota para listar todas as dívidas
+app.get('/api/dividas', async (req, res) => {
   try {
-      console.log('Rota /api/dividas acessada');
-      console.log('req.session.userId:', req.session.userId);
-
-      const userId = parseInt(req.session.userId);
-      if (!userId || isNaN(userId)) {
-          return res.status(401).json({ error: 'Usuário não autenticado' });
+    const userId = req.session.userId;
+    const dividas = await prisma.item.findMany({
+      where: { 
+        userId: userId, 
+        type: 'divida' 
+      },
+      include: {
+        parcelasPagas: true // Inclui as parcelas pagas
       }
+    });
+    
+    // Processa as dívidas para calcular valores
+    const dividasProcessadas = dividas.map(divida => {
+      const valorPago = divida.parcelasPagas.reduce((sum, parcela) => sum + parcela.valorPago, 0);
+      const valorRestante = divida.amount - valorPago;
+      const parcelasRestantes = divida.installment ? 
+        Math.ceil(valorRestante / divida.valorParcela) : 0;
+      
+      return {
+        ...divida,
+        valorPago,
+        valorRestante,
+        parcelasRestantes
+      };
+    });
 
-      // Buscar as dívidas na tabela Item
-      const dividas = await prisma.item.findMany({
-          where: {
-              userId: userId,
-              type: 'divida',
-          },
-      });
-
-      console.log('Dívidas retornadas:', dividas);
-      res.json(dividas);
+    res.status(200).json(dividasProcessadas);
   } catch (error) {
-      console.error('Erro ao buscar dívidas:', error);
-      res.status(500).json({ error: 'Erro ao buscar dívidas' });
+    console.error('Erro ao buscar dívidas:', error);
+    res.status(500).json({ error: 'Erro ao buscar dívidas' });
   }
 });
-
-app.post('/api/dividas/:id/pagar-parcela', isAuthenticated, async (req, res) => {
+  
+  // Rota para buscar detalhes de uma dívida específica
+  app.get('/api/dividas/:id', async (req, res) => {
+    const { id } = req.params;
+  
     try {
-        const { id } = req.params;
-        const userId = req.session.userId;
-
-        if (!userId) {
-            return res.status(401).json({ error: 'Usuário não autenticado' });
-        }
-
-        const divida = await prisma.item.findUnique({
-            where: { id: parseInt(id) },
-        });
-
-        if (!divida || divida.userId !== userId || divida.type !== 'divida') {
-            return res.status(404).json({ error: 'Dívida não encontrada' });
-        }
-
-        if (divida.installmentCount <= 0) {
-            return res.status(400).json({ error: 'Nenhuma parcela restante para pagar' });
-        }
-
-        // Atualizar a dívida (reduzir o valor e o número de parcelas)
-        const valorParcela = divida.amount / divida.installmentCount;
-        const updatedDivida = await prisma.item.update({
-            where: { id: parseInt(id) },
-            data: {
-                amount: divida.amount - valorParcela,
-                installmentCount: divida.installmentCount - 1,
-            },
-        });
-
-        // Retorna uma mensagem de sucesso no JSON
-        res.json({ success: 'Parcela paga com sucesso!', data: updatedDivida });
-    } catch (error) {
-        console.error('Erro ao pagar parcela:', error);
-        res.status(500).json({ error: 'Erro ao pagar parcela' });
-    }
-});
-
-// Rota para pagar uma dívida à vista
-app.post('/api/dividas/:id/pagar-avista',  isAuthenticated, async (req, res) => {
-  try {
-      const { id } = req.params;
-      const userId = req.session.userId;
-
-      if (!userId) {
-          return res.status(401).json({ error: 'Usuário não autenticado' });
-      }
-
       const divida = await prisma.item.findUnique({
-          where: { id: parseInt(id) },
+        where: { id: parseInt(id) },
       });
-
-      if (!divida || divida.userId !== userId || divida.type !== 'divida') {
-          return res.status(404).json({ error: 'Dívida não encontrada' });
+  
+      if (!divida) {
+        return res.status(404).json({ error: 'Dívida não encontrada' });
       }
-
-      // Deletar a dívida (pagamento à vista)
-      await prisma.item.delete({
-          where: { id: parseInt(id) },
+  
+      res.status(200).json(divida);
+    } catch (error) {
+      console.error('Erro ao buscar dívida:', error);
+      res.status(500).json({ error: 'Erro ao buscar dívida' });
+    }
+  });
+  
+  // Rota para listar parcelas pagas de uma dívida específica
+  app.get('/api/dividas/:id/parcelas-pagas', async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      const parcelasPagas = await prisma.parcelaPaga.findMany({
+        where: { itemId: parseInt(id) },
       });
+  
+      res.status(200).json(parcelasPagas);
+    } catch (error) {
+      console.error('Erro ao buscar parcelas pagas:', error);
+      res.status(500).json({ error: 'Erro ao buscar parcelas pagas' });
+    }
+  });
+  
+  
+  
+// Rota para pagar uma parcela
+app.post('/api/dividas/:id/pagar-parcela', isAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Busca a dívida com o valor FIXO da parcela
+    const divida = await prisma.item.findUnique({
+      where: { id: parseInt(id) }
+    });
 
-      res.json({ message: 'Dívida paga à vista com sucesso' });
+    if (!divida || !divida.installment || !divida.valorParcela) {
+      return res.status(400).json({ error: 'Dívida não encontrada ou não parcelada' });
+    }
+
+    // Usa o valor FIXO da parcela
+    const valorParcela = divida.valorParcela;
+    
+    // Registra o pagamento
+    await prisma.parcelaPaga.create({
+      data: {
+        itemId: divida.id,
+        valorPago: valorParcela,
+        dataPagamento: new Date()
+      }
+    });
+
+    // Atualiza o valor pago total na dívida
+    const novoValorPago = (divida.valorPago || 0) + valorParcela;
+    
+    await prisma.item.update({
+      where: { id: divida.id },
+      data: {
+        valorPago: novoValorPago,
+        status: novoValorPago >= divida.amount ? 'paga' : divida.status
+      }
+    });
+
+    res.json({ success: true });
   } catch (error) {
-      console.error('Erro ao pagar à vista:', error);
-      res.status(500).json({ error: 'Erro ao pagar à vista' });
+    console.error('Erro ao pagar parcela:', error);
+    res.status(500).json({ error: 'Erro ao pagar parcela' });
   }
 });
+
 
 // Rota para deletar uma dívida
-app.delete('/api/dividas/:id',  isAuthenticated, async (req, res) => {
+app.delete('/api/dividas/:id', async (req, res) => {
+  const { id } = req.params;
+
   try {
-      const { id } = req.params;
-      const userId = req.session.userId;
+    console.log('Tentando deletar a dívida com ID:', id);
 
-      if (!userId) {
-          return res.status(401).json({ error: 'Usuário não autenticado' });
-      }
+    // Verifica se a dívida existe
+    const divida = await prisma.item.findUnique({
+      where: { id: parseInt(id) },
+    });
 
-      const divida = await prisma.item.findUnique({
-          where: { id: parseInt(id) },
-      });
+    if (!divida) {
+      return res.status(404).json({ error: 'Dívida não encontrada' });
+    }
 
-      if (!divida || divida.userId !== userId || divida.type !== 'divida') {
-          return res.status(404).json({ error: 'Dívida não encontrada' });
-      }
+    // Deleta todas as parcelas pagas associadas à dívida
+    await prisma.parcelaPaga.deleteMany({
+      where: { itemId: parseInt(id) },
+    });
 
-      // Deletar a dívida
-      await prisma.item.delete({
-          where: { id: parseInt(id) },
-      });
+    // Deleta a dívida
+    await prisma.item.delete({
+      where: { id: parseInt(id) },
+    });
 
-      res.json({ message: 'Dívida deletada com sucesso' });
+    console.log('Dívida deletada com sucesso:', id);
+    res.status(200).json({ message: 'Dívida deletada com sucesso' });
   } catch (error) {
-      console.error('Erro ao deletar dívida:', error);
-      res.status(500).json({ error: 'Erro ao deletar dívida' });
+    console.error('Erro ao deletar dívida:', error);
+    res.status(500).json({ error: 'Erro ao deletar dívida' });
   }
 });
 
+// Função auxiliar para calcular os dados do dashboard
+async function getDashboardData(userId) {
+  try {
+      const items = await prisma.item.findMany({
+          where: { userId },
+          include: { parcelasPagas: true },
+      });
+
+      let totalIncome = 0;
+      let totalOutflows = 0;
+      let totalParcelasPagas = 0;
+      let totalExpenses = 0;
+      let totalDividasQuitadas = 0;
+
+      items.forEach((item) => {
+          if (item.type === 'entrada') {
+              totalIncome += item.amount;
+          } else if (item.type === 'saida') {
+              totalOutflows += item.amount;
+          } else if (item.type === 'divida') {
+              if (item.status === 'paga' && !item.installment) {
+                  totalDividasQuitadas += item.amount;
+              } else if (item.status !== 'paga') {
+                  if (item.installment) {
+                      const totalParcelas = item.installmentCount || 0;
+                      const parcelasPagas = item.parcelasPagas.length;
+                      const valorPorParcela = item.amount / totalParcelas;
+                      totalExpenses += valorPorParcela * (totalParcelas - parcelasPagas);
+                  } else {
+                      totalExpenses += item.amount;
+                  }
+              }
+          }
+
+          if (item.parcelasPagas?.length > 0) {
+              item.parcelasPagas.forEach((parcela) => {
+                  totalParcelasPagas += parcela.valorPago;
+              });
+          }
+      });
+
+      const balance = totalIncome - totalOutflows - totalParcelasPagas - totalDividasQuitadas;
+
+      return {
+          totalIncome,
+          totalOutflows,
+          totalParcelasPagas,
+          totalDividasQuitadas,
+          totalExpenses,
+          balance,
+          items
+      };
+  } catch (error) {
+      console.error('Erro ao calcular dados do dashboard:', error);
+      throw error;
+  }
+}
+
+// Rota para pagar uma dívida à vista
+app.post('/api/dividas/:id/pagar-avista', isAuthenticated, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Busca a dívida
+    const divida = await prisma.item.findUnique({
+      where: { id: parseInt(id) },
+      include: { parcelasPagas: true }
+    });
+
+    if (!divida) {
+      return res.status(404).json({ error: 'Dívida não encontrada' });
+    }
+
+    // Calcula valor já pago
+    const valorPago = divida.parcelasPagas.reduce((sum, parcela) => sum + parcela.valorPago, 0);
+    const valorRestante = divida.amount - valorPago;
+
+    // Registra o pagamento total restante como uma parcela
+    await prisma.parcelaPaga.create({
+      data: {
+        itemId: divida.id,
+        valorPago: valorRestante,
+        dataPagamento: new Date()
+      }
+    });
+
+    // Marca a dívida como paga
+    await prisma.item.update({
+      where: { id: parseInt(id) },
+      data: { 
+        status: 'paga',
+        valorPago: divida.amount,
+        installmentCount: 0
+      }
+    });
+
+    res.status(200).json({ message: 'Dívida quitada à vista com sucesso' });
+  } catch (error) {
+    console.error('Erro ao pagar à vista:', error);
+    res.status(500).json({ error: 'Erro ao pagar à vista' });
+  }
+});
 // Rota para listar todas as receitas do usuário logado
 app.get('/api/receitas',  isAuthenticated, async (req, res) => {
   try {

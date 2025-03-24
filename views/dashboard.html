@@ -134,204 +134,252 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
-        // Função para gerar o PDF
-        async function generatePDF() {
-            try {
-                // Busca os dados do dashboard
-                const dashboardResponse = await fetch('/dashboard-data');
-                if (!dashboardResponse.ok) {
-                    throw new Error('Erro ao buscar dados do dashboard');
-                }
-                const dashboardData = await dashboardResponse.json();
+     async function generatePDF() {
+    try {
+        // Configurações iniciais
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        const monthName = currentDate.toLocaleDateString('pt-BR', { month: 'long' });
 
-                // Busca as receitas
-                const receitasResponse = await fetch('/api/receitas');
-                if (!receitasResponse.ok) {
-                    throw new Error('Erro ao buscar receitas');
-                }
-                const receitasData = await receitasResponse.json();
+        // Funções de filtro
+        const filterCurrentMonth = (date) => {
+            const itemDate = new Date(date);
+            return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+        };
 
-                // Busca as dívidas
-                const dividasResponse = await fetch('/api/dividas');
-                if (!dividasResponse.ok) {
-                    throw new Error('Erro ao buscar dívidas');
-                }
-                const dividasData = await dividasResponse.json();
+        // Busca os dados
+        const dashboardResponse = await fetch('/dashboard-data');
+        if (!dashboardResponse.ok) throw new Error('Erro ao buscar dados');
+        const dashboardData = await dashboardResponse.json();
 
-                // Busca as saídas
-                const saidasResponse = await fetch('/api/saidas');
-                if (!saidasResponse.ok) {
-                    throw new Error('Erro ao buscar saídas');
-                }
-                const saidasData = await saidasResponse.json();
-
-                // Verifica se os dados estão no formato esperado
-                if (!Array.isArray(receitasData)) {
-                    throw new Error('Dados de receitas não são um array');
-                }
-                if (!Array.isArray(dividasData)) {
-                    throw new Error('Dados de dívidas não são um array');
-                }
-                if (!Array.isArray(saidasData)) {
-                    throw new Error('Dados de saídas não são um array');
-                }
-
-                // Cria um novo PDF
-                const pdf = new jspdf.jsPDF();
-
-                // Configurações de estilo
-                const primaryColor = '#4CAF50'; // Verde
-                const secondaryColor = '#3498db'; // Azul
-                const textColor = '#333333'; // Cinza escuro
-
-                // Adiciona o cabeçalho
-                pdf.setFontSize(22);
-                pdf.setTextColor(primaryColor);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text("Resumo Financeiro do Mês", 10, 20);
-
-                // Adiciona a data atual
-                pdf.setFontSize(12);
-                pdf.setTextColor(textColor);
-                pdf.setFont('helvetica', 'normal');
-                const today = new Date().toLocaleDateString('pt-BR');
-                pdf.text(`Data: ${today}`, 10, 30);
-
-                // Adiciona uma linha divisória
-                pdf.setDrawColor(primaryColor);
-                pdf.setLineWidth(0.5);
-                pdf.line(10, 35, 200, 35);
-
-                // Adiciona os dados financeiros em uma tabela
-                pdf.setFontSize(14);
-                pdf.setTextColor(secondaryColor);
-                pdf.text("Dados Financeiros", 10, 45);
-
-                pdf.setFontSize(12);
-                pdf.setTextColor(textColor);
-                pdf.autoTable({
-                    startY: 50,
-                    head: [['Descrição', 'Valor (R$)']],
-                    body: [
-                        ['Saldo Atual', dashboardData.balance?.toFixed(2) || '0.00'],
-                        ['Receitas Totais', dashboardData.totalIncome?.toFixed(2) || '0.00'],
-                        ['Despesas Totais', dashboardData.totalExpenses?.toFixed(2) || '0.00'],
-                        ['Saídas Totais', dashboardData.totalOutflows?.toFixed(2) || '0.00'], // Novo campo para saídas
-                    ],
-                    theme: 'striped', // Estilo de tabela com listras
-                    headStyles: {
-                        fillColor: primaryColor,
-                        textColor: '#ffffff', // Texto branco no cabeçalho
-                    },
-                    bodyStyles: {
-                        textColor: textColor,
-                    },
-                });
-
-                // Adiciona a tabela de receitas
-                pdf.setFontSize(14);
-                pdf.setTextColor(secondaryColor);
-                pdf.text("Lista de Receitas", 10, pdf.autoTable.previous.finalY + 10);
-
-                pdf.setFontSize(12);
-                pdf.setTextColor(textColor);
-                pdf.autoTable({
-                    startY: pdf.autoTable.previous.finalY + 15,
-                    head: [['Descrição', 'Valor (R$)', 'Data']],
-                    body: receitasData.map(item => [
-                        item.description || 'N/A',
-                        item.amount?.toFixed(2) || '0.00',
-                        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
-                    ]),
-                    theme: 'striped',
-                    headStyles: {
-                        fillColor: primaryColor,
-                        textColor: '#ffffff',
-                    },
-                    bodyStyles: {
-                        textColor: textColor,
-                    },
-                });
-
-                // Adiciona a tabela de dívidas
-                pdf.setFontSize(14);
-                pdf.setTextColor(secondaryColor);
-                pdf.text("Lista de Dívidas", 10, pdf.autoTable.previous.finalY + 10);
-
-                pdf.setFontSize(12);
-                pdf.setTextColor(textColor);
-                pdf.autoTable({
-                    startY: pdf.autoTable.previous.finalY + 15,
-                    head: [['Descrição', 'Valor (R$)', 'Data']],
-                    body: dividasData.map(item => [
-                        item.description || 'N/A',
-                        item.amount?.toFixed(2) || '0.00',
-                        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
-                    ]),
-                    theme: 'striped',
-                    headStyles: {
-                        fillColor: primaryColor,
-                        textColor: '#ffffff',
-                    },
-                    bodyStyles: {
-                        textColor: textColor,
-                    },
-                });
-
-                // Adiciona a tabela de saídas
-                pdf.setFontSize(14);
-                pdf.setTextColor(secondaryColor);
-                pdf.text("Lista de Saídas", 10, pdf.autoTable.previous.finalY + 10);
-
-                pdf.setFontSize(12);
-                pdf.setTextColor(textColor);
-                pdf.autoTable({
-                    startY: pdf.autoTable.previous.finalY + 15,
-                    head: [['Descrição', 'Valor (R$)', 'Data']],
-                    body: saidasData.map(item => [
-                        item.description || 'N/A',
-                        item.amount?.toFixed(2) || '0.00',
-                        new Date(item.createdAt).toLocaleDateString('pt-BR') || 'N/A',
-                    ]),
-                    theme: 'striped',
-                    headStyles: {
-                        fillColor: primaryColor,
-                        textColor: '#ffffff',
-                    },
-                    bodyStyles: {
-                        textColor: textColor,
-                    },
-                });
-
-                // Adiciona o gráfico (se disponível)
-                const canvas = document.getElementById('financeChart');
-                if (canvas) {
-                    const imgData = await html2canvas(canvas).then(canvas => canvas.toDataURL('image/png'));
-
-                    // Verifica se há espaço suficiente para o gráfico na página atual
-                    const spaceLeft = pdf.internal.pageSize.height - pdf.autoTable.previous.finalY;
-                    if (spaceLeft < 120) { // Se o espaço for menor que 120 unidades, cria uma nova página
-                        pdf.addPage();
-                        pdf.setPage(pdf.internal.getNumberOfPages()); // Define a nova página como ativa
-                        pdf.autoTable.previous.finalY = 10; // Reinicia a posição Y para o topo da nova página
+        // Processa os dados
+        const receitas = dashboardData.items?.filter(item => 
+            item.type === 'entrada' && filterCurrentMonth(item.createdAt)) || [];
+        
+        const saidas = dashboardData.items?.filter(item => 
+            item.type === 'saida' && filterCurrentMonth(item.createdAt)) || [];
+        
+        // Processa dívidas e parcelas
+        const parcelasPagasNoMes = [];
+        const dividasParaRelatorio = dashboardData.items
+            ?.filter(item => item.type === 'divida')
+            .flatMap(divida => {
+                if (divida.installment) {
+                    // Para dívidas parceladas: filtra parcelas do mês
+                    const parcelasMes = divida.parcelasPagas?.filter(parcela => 
+                        filterCurrentMonth(parcela.dataPagamento)) || [];
+                    
+                    parcelasMes.forEach(parcela => {
+                        parcelasPagasNoMes.push({
+                            descricao: divida.description,
+                            valor: parcela.valorPago,
+                            data: parcela.dataPagamento,
+                            tipo: `Parcela ${divida.parcelasPagas.indexOf(parcela)+1}/${divida.installmentCount}`
+                        });
+                    });
+                    
+                    return parcelasMes.length > 0 ? [divida] : [];
+                } else {
+                    // Para dívidas à vista: verifica se foi paga no mês
+                    if (divida.status === 'paga' && filterCurrentMonth(divida.updatedAt)) {
+                        parcelasPagasNoMes.push({
+                            descricao: divida.description,
+                            valor: divida.amount,
+                            data: divida.updatedAt,
+                            tipo: 'Pagamento único'
+                        });
+                        return [divida];
                     }
-
-                    pdf.addImage(imgData, 'PNG', 10, pdf.autoTable.previous.finalY + 10, 180, 100); // Ajuste as dimensões conforme necessário
+                    return [];
                 }
+            }) || [];
 
-                // Adiciona o rodapé
-                pdf.setFontSize(10);
-                pdf.setTextColor(textColor);
-                pdf.setFont('helvetica', 'italic');
-                pdf.text("Sistema Financeiro - Relatório Gerado Automaticamente", 10, pdf.internal.pageSize.height - 10);
+        // Prepara dados para o gráfico
+        const totalReceitas = receitas.reduce((sum, item) => sum + item.amount, 0);
+        const totalSaidas = saidas.reduce((sum, item) => sum + item.amount, 0);
+        const totalParcelas = parcelasPagasNoMes.reduce((sum, item) => sum + item.valor, 0);
 
-                // Salva o PDF com o nome "resumo_mes.pdf"
-                pdf.save('resumo_mes.pdf');
-            } catch (error) {
-                console.error('Erro ao gerar PDF:', error);
-                alert('Erro ao gerar PDF. Por favor, tente novamente.');
-            }
+        // Cria o gráfico
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 400;
+        const ctx = canvas.getContext('2d');
+        
+        // Configuração do gráfico
+        const data = {
+            labels: ['Receitas', 'Saídas', 'Parcelas Pagas'],
+            datasets: [{
+                data: [totalReceitas, totalSaidas, totalParcelas],
+                backgroundColor: ['#4CAF50', '#F44336', '#2196F3'],
+                borderWidth: 1
+            }]
+        };
+
+        // Desenha o gráfico (simplificado)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Título
+        ctx.fillStyle = '#333333';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Resumo Financeiro Mensal', canvas.width/2, 30);
+        
+        // Desenha as barras
+        const barWidth = 80;
+        const startX = 150;
+        const maxValue = Math.max(totalReceitas, totalSaidas, totalParcelas);
+        const scaleFactor = 200 / (maxValue || 1);
+        
+        data.datasets[0].data.forEach((value, index) => {
+            const x = startX + (index * (barWidth + 50));
+            const height = value * scaleFactor;
+            
+            // Barra
+            ctx.fillStyle = data.datasets[0].backgroundColor[index];
+            ctx.fillRect(x, 350 - height, barWidth, height);
+            
+            // Valor
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.fillText(`R$ ${value.toFixed(2).replace('.', ',')}`, x + barWidth/2, 340 - height);
+            
+            // Label
+            ctx.fillText(data.labels[index], x + barWidth/2, 370);
+        });
+
+        // Cria o PDF
+        const pdf = new jspdf.jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        // --- CABEÇALHO ---
+        pdf.setFontSize(22);
+        pdf.setTextColor('#4CAF50');
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`Resumo Financeiro - ${monthName}/${currentYear}`, 105, 20, { align: 'center' });
+
+        // --- GRÁFICO ---
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', 15, 30, 180, 90);
+
+        // --- RESUMO FINANCEIRO ---
+        pdf.setFontSize(14);
+        pdf.setTextColor('#3498db');
+        pdf.text("Totais do Mês", 15, 130);
+
+        pdf.autoTable({
+            startY: 135,
+            head: [['Categoria', 'Valor (R$)']],
+            body: [
+                ['Receitas', `R$ ${totalReceitas.toFixed(2).replace('.', ',')}`],
+                ['Saídas', `R$ ${totalSaidas.toFixed(2).replace('.', ',')}`],
+                ['Parcelas Pagas', `R$ ${totalParcelas.toFixed(2).replace('.', ',')}`],
+                ['Saldo', `R$ ${(totalReceitas - totalSaidas - totalParcelas).toFixed(2).replace('.', ',')}`]
+            ],
+            theme: 'striped',
+            headStyles: { 
+                fillColor: '#4CAF50', 
+                textColor: '#ffffff',
+                fontStyle: 'bold'
+            },
+            margin: { left: 15 }
+        });
+
+        // --- PARCELAS PAGAS ---
+        if (parcelasPagasNoMes.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setTextColor('#3498db');
+            pdf.text("Detalhe de Parcelas Pagas", 15, pdf.autoTable.previous.finalY + 15);
+
+            pdf.autoTable({
+                startY: pdf.autoTable.previous.finalY + 20,
+                head: [['Descrição', 'Valor', 'Tipo', 'Data']],
+                body: parcelasPagasNoMes.map(item => [
+                    item.descricao,
+                    `R$ ${item.valor.toFixed(2).replace('.', ',')}`,
+                    item.tipo,
+                    new Date(item.data).toLocaleDateString('pt-BR')
+                ]),
+                theme: 'grid',
+                headStyles: { 
+                    fillColor: '#2196F3', 
+                    textColor: '#ffffff',
+                    fontStyle: 'bold'
+                },
+                margin: { left: 15 }
+            });
         }
+
+        // --- RECEITAS ---
+        if (receitas.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setTextColor('#3498db');
+            pdf.text("Detalhe de Receitas", 15, pdf.autoTable.previous.finalY + 15);
+
+            pdf.autoTable({
+                startY: pdf.autoTable.previous.finalY + 20,
+                head: [['Descrição', 'Valor', 'Data']],
+                body: receitas.map(item => [
+                    item.description,
+                    `R$ ${item.amount.toFixed(2).replace('.', ',')}`,
+                    new Date(item.createdAt).toLocaleDateString('pt-BR')
+                ]),
+                theme: 'grid',
+                headStyles: { 
+                    fillColor: '#4CAF50', 
+                    textColor: '#ffffff',
+                    fontStyle: 'bold'
+                },
+                margin: { left: 15 }
+            });
+        }
+
+        // --- SAÍDAS ---
+        if (saidas.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setTextColor('#3498db');
+            pdf.text("Detalhe de Saídas", 15, pdf.autoTable.previous.finalY + 15);
+
+            pdf.autoTable({
+                startY: pdf.autoTable.previous.finalY + 20,
+                head: [['Descrição', 'Valor', 'Data']],
+                body: saidas.map(item => [
+                    item.description || 'Sem descrição',
+                    `R$ ${item.amount?.toFixed(2).replace('.', ',') || '0,00'}`,
+                    new Date(item.createdAt).toLocaleDateString('pt-BR')
+                ]),
+                theme: 'grid',
+                headStyles: { 
+                    fillColor: '#F44336', 
+                    textColor: '#ffffff',
+                    fontStyle: 'bold'
+                },
+                margin: { left: 15 }
+            });
+        }
+
+        // Rodapé
+        pdf.setFontSize(10);
+        pdf.setTextColor('#777');
+        pdf.setFont('helvetica', 'italic');
+        pdf.text(`Relatório gerado em ${currentDate.toLocaleString('pt-BR')}`, 105, pdf.internal.pageSize.height - 10, { align: 'center' });
+
+        // Salva o PDF
+        pdf.save(`relatorio_financeiro_${monthName}_${currentYear}.pdf`);
+
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro',
+            text: 'Não foi possível gerar o PDF. Por favor, tente novamente.'
+        });
+    }
+}
     </script>
 </body>
 </html>

@@ -11,20 +11,33 @@ model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique
   password  String
-  items     Item[]   // Relação com os itens
+  balance   Float    @default(0) // Adicione esta linha
+  items     Item[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Item {
   id              Int      @id @default(autoincrement())
-  type            String   // Entrada, Saída, Dívida
+  type            String
   description     String
   amount          Float
-  installment     Boolean  // Se é parcelado
-  installmentCount Int?    // Número de parcelas
-  userId          Int      // ID do usuário associado
+  installment     Boolean
+  installmentCount Int?
+  valorParcela    Float?   // Valor FIXO da parcela
+  valorPago       Float?   // Total já pago
+  status          String   @default("pendente")
+  userId          Int
   user            User     @relation(fields: [userId], references: [id])
+  parcelasPagas   ParcelaPaga[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model ParcelaPaga {
+  id            Int      @id @default(autoincrement())
+  itemId        Int      // ID do item associado
+  item          Item     @relation(fields: [itemId], references: [id])
+  dataPagamento DateTime @default(now()) // Data em que a parcela foi paga
+  valorPago     Float    // Valor pago na parcela
 }
