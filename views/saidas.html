@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="/css/saida.css">
   <link rel="stylesheet" href="/css/dashboard.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <title>Listar Saídas - Sistema Financeiro</title>
 </head>
 <body>
@@ -113,26 +114,109 @@
 
     // Função para editar uma saída
     async function editarSaida(id) {
-        // Redirecionar para a página de edição
+    // Verifica se o SweetAlert2 está carregado
+    if (typeof Swal === 'undefined') {
+        console.warn('SweetAlert2 não carregado - redirecionando diretamente');
+        window.location.href = `/editar-saida/${id}`;
+        return;
+    }
+
+    try {
+        const result = await Swal.fire({
+            title: 'Editar Saída',
+            html: `<p>Você será redirecionado para editar esta saída.</p>
+                   <p style="font-size:0.9em;color:#666">Deseja continuar?</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sim, editar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            focusConfirm: false,
+            customClass: {
+                popup: 'custom-swal-popup'
+            }
+        });
+
+        if (result.isConfirmed) {
+            // Adiciona um pequeno delay para melhor experiência
+            await Swal.fire({
+                title: 'Redirecionando...',
+                timer: 800,
+                timerProgressBar: true,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            window.location.href = `/editar-saida/${id}`;
+        }
+
+    } catch (error) {
+        console.error('Erro ao confirmar edição:', error);
+        // Fallback caso ocorra algum erro com o SweetAlert
         window.location.href = `/editar-saida/${id}`;
     }
+}
 
     // Função para deletar uma saída
     async function deletarSaida(id) {
-        try {
-            const response = await fetch(`/api/saidas/${id}`, {
-                method: 'DELETE',
-            });
-            if (!response.ok) {
-                throw new Error('Erro ao deletar saída');
+    // Primeiro, mostra a confirmação
+    const { isConfirmed } = await Swal.fire({
+        title: 'Confirmar Exclusão',
+        text: 'Tem certeza que deseja excluir esta saída? Esta ação não pode ser desfeita.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sim, excluir',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true
+    });
+
+    // Se o usuário não confirmou, não prossegue
+    if (!isConfirmed) return;
+
+    try {
+        // Faz a requisição DELETE
+        const response = await fetch(`/api/saidas/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
             }
-            alert('Saída deletada com sucesso!');
-            loadSaidas(); // Recarregar a lista de saídas
-        } catch (error) {
-            console.error('Erro:', error);
-            alert('Erro ao deletar saída');
+        });
+
+        // Verifica se a resposta foi bem sucedida
+        if (!response.ok) {
+            throw new Error(`Erro HTTP: ${response.status}`);
         }
+
+        // Mostra mensagem de sucesso
+        await Swal.fire({
+            title: 'Sucesso!',
+            text: 'Saída excluída com sucesso.',
+            icon: 'success',
+            timer: 2000,
+            timerProgressBar: true,
+            showConfirmButton: false
+        });
+
+        // Recarrega a lista de saídas
+        loadSaidas();
+
+    } catch (error) {
+        console.error('Falha ao excluir saída:', error);
+        
+        // Mostra mensagem de erro detalhada
+        await Swal.fire({
+            title: 'Erro!',
+            text: 'Não foi possível excluir a saída. Por favor, tente novamente.',
+            icon: 'error',
+            confirmButtonText: 'Entendi'
+        });
     }
+}
 
     // Carregar as saídas ao abrir a página
     loadSaidas();

@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="/css/receitas.css">
   <link rel="stylesheet" href="/css/dashboard.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <title>Listar Receitas - Sistema Financeiro</title>
 </head>
 <body>
@@ -111,28 +112,100 @@
       }
     }
 
-    // Função para editar uma receita
-    async function editarReceita(id) {
-        // Redirecionar para a página de edição
+   // Função para editar uma receita com confirmação
+   async function editarReceita(id) {
+    try {
+        // Verifica se o SweetAlert2 está disponível
+        if (typeof Swal === 'undefined') {
+            console.warn('SweetAlert2 não carregado - redirecionando diretamente');
+            window.location.href = `/editar-receita/${id}`;
+            return;
+        }
+
+        // Modal de confirmação estilizado
+        const { isConfirmed } = await Swal.fire({
+            title: 'Editar Receita',
+            html: `<div style="font-size:1.1rem">Deseja editar esta receita?</div>
+                   <div style="font-size:0.9rem;color:#666">Você será redirecionado para a página de edição</div>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#4CAF50',  // Verde para ações positivas
+            cancelButtonColor: '#d33',       // Vermelho para cancelar
+            confirmButtonText: '<i class="fas fa-edit"></i> Editar',
+            cancelButtonText: '<i class="fas fa-times"></i> Cancelar',
+            reverseButtons: true,
+            focusCancel: true,               // Foco no botão de cancelar por segurança
+            backdrop: 'rgba(0,0,0,0.4)',
+            customClass: {
+                popup: 'custom-swal-popup',
+                actions: 'swal2-actions-right'
+            }
+        });
+
+        // Se confirmado, mostra feedback antes de redirecionar
+        if (isConfirmed) {
+            await Swal.fire({
+                title: 'Abrindo Editor...',
+                timer: 800,
+                timerProgressBar: true,
+                didOpen: () => {
+                    Swal.showLoading();
+                },
+                willClose: () => {
+                    window.location.href = `/editar-receita/${id}`;
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('Erro no diálogo de edição:', error);
+        // Fallback seguro em caso de erro
         window.location.href = `/editar-receita/${id}`;
     }
+}
+    // Função para deletar uma receita com confirmação
+    async function deletarReceita(id) {  // Removido o parâmetro receitaNome
+    try {
+        // Busca o nome da receita primeiro se necessário
+        const receita = await fetch(`/api/receitas/${id}`).then(res => res.json());
+        const receitaNome = receita?.description || 'esta receita';
 
-    // Função para deletar uma receita
-    async function deletarReceita(id) {
-        try {
-            const response = await fetch(`/api/receitas/${id}`, {
-                method: 'DELETE',
-            });
-            if (!response.ok) {
-                throw new Error('Erro ao deletar receita');
-            }
-            alert('Receita deletada com sucesso!');
-            loadReceitas(); // Recarregar a lista de receitas
-        } catch (error) {
-            console.error('Erro:', error);
-            alert('Erro ao deletar receita');
-        }
+        const { isConfirmed } = await Swal.fire({
+            title: 'Confirmar Exclusão',
+            html: `Deseja deletar <strong>"${receitaNome}"</strong>?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e74c3c',
+            cancelButtonColor: '#95a5a6',
+            confirmButtonText: 'Sim, deletar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (!isConfirmed) return;
+
+        const response = await fetch(`/api/receitas/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Erro ao deletar');
+
+        await Swal.fire(
+            'Deletado!',
+            `"${receitaNome}" foi removida com sucesso.`,
+            'success'
+        );
+        
+        loadReceitas();
+
+    } catch (error) {
+        console.error('Erro:', error);
+        Swal.fire(
+            'Erro!',
+            'Não foi possível deletar a receita.',
+            'error'
+        );
     }
+}
 
     // Carregar as receitas ao abrir a página
     loadReceitas();

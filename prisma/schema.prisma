@@ -1,43 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "sqlite"
   url      = "file:./dev.db"
-}
-
-generator client {
-  provider = "prisma-client-js"
 }
 
 model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique
   password  String
-  balance   Float    @default(0) // Adicione esta linha
-  items     Item[]
+  balance   Float    @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  email     String?  @unique
+  items     Item[]
 }
 
 model Item {
-  id              Int      @id @default(autoincrement())
-  type            String
-  description     String
-  amount          Float
-  installment     Boolean
+  id               Int           @id @default(autoincrement())
+  type             String
+  description      String
+  amount           Float
+  installment      Boolean
   installmentCount Int?
-  valorParcela    Float?   // Valor FIXO da parcela
-  valorPago       Float?   // Total já pago
-  status          String   @default("pendente")
-  userId          Int
-  user            User     @relation(fields: [userId], references: [id])
-  parcelasPagas   ParcelaPaga[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status           String        @default("pendente")
+  userId           Int
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  valorParcela     Float?
+  valorPago        Float?
+  user             User          @relation(fields: [userId], references: [id])
+  parcelasPagas    ParcelaPaga[]
 }
 
 model ParcelaPaga {
   id            Int      @id @default(autoincrement())
-  itemId        Int      // ID do item associado
+  itemId        Int
+  dataPagamento DateTime @default(now())
+  valorPago     Float
   item          Item     @relation(fields: [itemId], references: [id])
-  dataPagamento DateTime @default(now()) // Data em que a parcela foi paga
-  valorPago     Float    // Valor pago na parcela
 }
