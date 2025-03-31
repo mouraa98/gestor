@@ -40,5 +40,6 @@ model ParcelaPaga {
   itemId        Int
   dataPagamento DateTime @default(now())
   valorPago     Float
+  numeroParcela Int?     // Adicionei este campo para identificar qual parcela foi paga
   item          Item     @relation(fields: [itemId], references: [id])
 }

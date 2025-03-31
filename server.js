@@ -8,7 +8,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const app = express();
-const port = 3000;
+const port = 8000;
 
 app.use(express.static('public'));
 
@@ -80,6 +80,60 @@ app.post('/login', async (req, res) => {
   } else {
     // Redireciona com uma mensagem de erro na URL
     res.redirect('/login?error=Credenciais inválidas');
+  }
+});
+
+// Rota para pagamento avulso de parcela
+app.post('/api/dividas/:id/pagar-avulso', isAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  const { valorPago, numeroParcela } = req.body;
+
+  try {
+    // Verifica se a dívida existe
+    const divida = await prisma.item.findUnique({
+      where: { id: parseInt(id) },
+      include: { parcelasPagas: true }
+    });
+
+    if (!divida) {
+      return res.status(404).json({ error: 'Dívida não encontrada' });
+    }
+
+    // Verifica se o valor é válido
+    if (!valorPago || valorPago <= 0) {
+      return res.status(400).json({ error: 'Valor inválido para pagamento' });
+    }
+
+    // Verifica se o número da parcela é válido
+    if (!numeroParcela || numeroParcela <= 0) {
+      return res.status(400).json({ error: 'Número de parcela inválido' });
+    }
+
+    // Registra o pagamento avulso
+    const parcelaPaga = await prisma.parcelaPaga.create({
+      data: {
+        itemId: divida.id,
+        valorPago: parseFloat(valorPago),
+        numeroParcela: parseInt(numeroParcela),
+        dataPagamento: new Date()
+      }
+    });
+
+    // Atualiza o valor total pago na dívida
+    const totalPago = divida.parcelasPagas.reduce((sum, parcela) => sum + parcela.valorPago, 0) + parseFloat(valorPago);
+    
+    await prisma.item.update({
+      where: { id: divida.id },
+      data: {
+        valorPago: totalPago,
+        status: totalPago >= divida.amount ? 'paga' : divida.status
+      }
+    });
+
+    res.json({ success: true, parcelaPaga });
+  } catch (error) {
+    console.error('Erro ao processar pagamento avulso:', error);
+    res.status(500).json({ error: 'Erro ao processar pagamento avulso' });
   }
 });
 
